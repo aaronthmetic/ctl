@@ -7,23 +7,32 @@ import requests
 from dotenv import load_dotenv
 import os
 
+import gspread
+from google.oauth2.service_account import Credentials
+
+scopes = [
+    "https://www.googleapis.com/auth/spreadsheets"
+]
+creds = Credentials.from_service_account_file("credentials.json", scopes=scopes)
+sheetsClient = gspread.authorize(creds)
+
+sheet_id = "1vr2ltnMgevSpoeI3HAT5emdaU07G7AgjjItbz7hDFdg"
+workbook = sheetsClient.open_by_key(sheet_id)
+
+TestSheet = workbook.worksheet("Sheet1")
+Seedings = workbook.worksheet("Seedings")
+MatchupsU = workbook.worksheet("MatchupsU")
+StandingsU = workbook.worksheet("Standings for 2025U")
+MatchupsL = workbook.worksheet("MatchupsL")
+StandingsL = workbook.worksheet("Standings for 2025L")
+
+teams = Seedings.col_values(1)[1:]
+
+upperStandings = StandingsU.get("C2:G17")
+lowerStandings = StandingsL.get("C2:G29")
+
 load_dotenv()
 token = os.getenv('DISCORD_TOKEN')
-
-teams = [
-         "Amherst College", "Carnegie Mellon University", "Columbia University", "Cornell University",
-         "Georgia Institute of Technology", "New York University A", "New York University B", "Princeton University",
-         "Purdue University A", "Purdue University B", "Rochester Institute of Technology", "Simon Fraser University",
-         "Stanford University", "Texas A&M University", "University of British Columbia A", "University of British Columbia B",
-         "University of California, Irvine", "University of California, Los Angeles A", "University of California, Los Angeles B",
-         "University of California, Santa Barbara", "University of California, Santa Cruz", "University of California, San Diego",
-         "University of California, Berkeley", "University of California, Davis", "University of Illinois, Urbana-Champaign",
-         "University of Florida", "University of Michigan A", "University of Michigan B", "University of Southern California A",
-         "University of Southern California B", "University of Toronto A", "University of Toronto B", "University of Texas, Austin",
-         "University of Waterloo A", "University of Waterloo B", "University of Waterloo C", "University of Northern British Columbia",
-         "University of Washington A", "University of Washington B", "University of Ottawa", "University of Utah", "University of Victoria",
-         "Wilfrid Laurier University", "Yale University"
-    ]
 
 class Client(commands.Bot):
     async def on_ready(self):
@@ -68,9 +77,9 @@ async def getStats(interaction: discord.Interaction, username: str):
 
 @client.tree.command(name="standings", description="Display standings for either the upper league or lower league.", guild=GUILD_ID)
 @app_commands.describe(
-    league="(Optional) Choose a league to display standings for.",
+    league="(Optional) Choose a league to display standings for. Defaults to upper if no team is indicated.",
     team="(Optional) Choose a team to display standings.",
-    shown="(Optional) Choose the number of teams shown. Defaults to 5 teams. 0 means show all."
+    shown="(Optional) Choose the number of teams shown. Defaults to 10 teams. 0 means show all."
 )
 @app_commands.choices(
     league=[
@@ -78,32 +87,45 @@ async def getStats(interaction: discord.Interaction, username: str):
         app_commands.Choice(name="lower", value="lower")
     ]
 )
-async def standings(interaction: discord.Interaction, league: app_commands.Choice[str] = None, team: str = None, shown: str = "5"):
+async def standings(interaction: discord.Interaction, league: app_commands.Choice[str] = None, team: str = None, shown: str = "10"):
     maxTeams = 0 # placeholder for max teams there are
     if team is None:
-        if league is None:
-            embed = discord.Embed(title="Standings", description="2026 CTL Standings", color=discord.Color.purple())
+        if (league is None or league.name == "upper"):
+            embed = discord.Embed(title="2026 Upper League Standings", color=discord.Color.purple())
             embed.set_thumbnail(url="https://cdn.discordapp.com/icons/829182450185142312/f78172b9c494c081f4c4ca6da29b76e2.png?size=1024")
-            embed.add_field(name="Team", value="Upper League", inline=False) # fill in later
-            embed.add_field(name="Team", value="Lower League", inline=False) # fill in later
-            await interaction.response.send_message(embed=embed)
-            return
-        elif (league.name == "upper"):
-            embed = discord.Embed(title="Standings", description="2026 Upper League Standings", color=discord.Color.purple())
-            embed.set_thumbnail(url="https://cdn.discordapp.com/icons/829182450185142312/f78172b9c494c081f4c4ca6da29b76e2.png?size=1024")
-            embed.add_field(name="Team", value="Upper League", inline=True) # fill in later
+            embed.add_field(
+                name="Team",
+                value="\n".join([f"**{index+1}: {university}** ({score} Points, {bucholz} Bucholz, {point_differential} Point Differential)" 
+                             for index, (university, score, bucholz, point_differential,games_played) in enumerate(upperStandings[:min(int(shown),10)])]),
+                inline=True
+            ) # fix with buttons later
             await interaction.response.send_message(embed=embed)
         else:
-            embed = discord.Embed(title="Standings", description="2026 Lower League Standings", color=discord.Color.purple())
+            embed = discord.Embed(title="2026 Lower League Standings", color=discord.Color.purple())
             embed.set_thumbnail(url="https://cdn.discordapp.com/icons/829182450185142312/f78172b9c494c081f4c4ca6da29b76e2.png?size=1024")
-            embed.add_field(name="Team", value="Lower League", inline=True) # fill in later
+            embed.add_field(
+                name="Team",
+                value="\n".join([f"**{index+1}: {university}** ({score} Points, {bucholz} Bucholz, {point_differential} Point Differential)" 
+                             for index, (university, score, bucholz, point_differential,games_played) in enumerate(lowerStandings[:min(int(shown),10)])]),
+                inline=True
+            ) # fix with buttons later
             await interaction.response.send_message(embed=embed)
     else:
-         embed = discord.Embed(title="Standings", description=f'2026 {team} Standings', color=discord.Color.purple())
+         def find_university_info(university_name):
+            for index, (university, score, bucholz, point_differential, games_played) in enumerate(lowerStandings + upperStandings):
+                if university_name == university:
+                    if (index+1-len(lowerStandings))>0:
+                        return index+1-len(lowerStandings), score, bucholz, point_differential, games_played
+                    else:
+                        return index+1, score, bucholz, point_differential, games_played
+         rank, score, bucholz, point_differential, games_played = find_university_info(team)
+         embed = discord.Embed(title=f'2026 {team} Standings', color=discord.Color.purple())
          embed.set_thumbnail(url="https://cdn.discordapp.com/icons/829182450185142312/f78172b9c494c081f4c4ca6da29b76e2.png?size=1024")
-         embed.add_field(name="Record", value="0-0", inline=False) # fill in later
-         embed.add_field(name="Bucholz", value="0", inline=False) # fill in later
-         embed.add_field(name="Point Differential", value="0", inline=False) # fill in later
+         embed.add_field(name="Record", value=f'{score}-{int(games_played)-int(score)}', inline=True)
+         embed.add_field(name="Rank", value=rank, inline=True)
+         embed.add_field(name="", value="", inline=False)
+         embed.add_field(name="Bucholz", value=bucholz, inline=True)
+         embed.add_field(name="Point Differential", value=point_differential, inline=True)
          await interaction.response.send_message(embed=embed)
 
 @standings.autocomplete('team')
