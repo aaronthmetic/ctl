@@ -77,7 +77,7 @@ async def getStats(interaction: discord.Interaction, username: str):
 @app_commands.describe(
     league="(Optional) Choose a league to display standings for.",
     team="(Optional) Choose a team to display standings.",
-    shown="(Optional) Choose the number of teams shown."
+    shown="(Optional) Choose the number of teams shown. Defaults to 5 teams. 0 means show all."
 )
 @app_commands.choices(
     league=[
@@ -85,8 +85,8 @@ async def getStats(interaction: discord.Interaction, username: str):
         app_commands.Choice(name="lower", value="lower")
     ]
 )
-async def standings(interaction: discord.Interaction, league: app_commands.Choice[str] = None, team: str = None, shown: str = None):
-    maxTeams = 0 # placeholder for max teams there are as default value for shown
+async def standings(interaction: discord.Interaction, league: app_commands.Choice[str] = None, team: str = None, shown: str = "5"):
+    maxTeams = 0 # placeholder for max teams there are
     if team is None:
         if league is None:
             embed = discord.Embed(title="Standings", description="2026 CTL Standings", color=discord.Color.purple())
