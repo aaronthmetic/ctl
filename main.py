@@ -55,6 +55,7 @@ client = Client(command_prefix="!", intents=intents, activity = discord.Game(nam
 GUILD_IDS = [discord.Object(id=761274425475072010), discord.Object(id=1163677315553824768)]
     
 for GUILD_ID in GUILD_IDS:
+    
     @client.tree.command(name="help", description="Display a list of all commands.", guild=GUILD_ID)
     async def help(interaction: discord.Interaction):
         embed = discord.Embed(title="Help", color=discord.Color.purple())
@@ -81,6 +82,14 @@ for GUILD_ID in GUILD_IDS:
             await interaction.response.send_message(response.status_code)
     '''
 
+    class View(discord.ui.View):
+        @discord.ui.button(style=discord.ButtonStyle.gray, emoji="⬅️")
+        async def backward(self, interaction=discord.Interaction, button=discord.ui.Button):
+            await interaction.response.send_message("this should go back a page", ephemeral=True)
+        @discord.ui.button(style=discord.ButtonStyle.gray, emoji="➡️")
+        async def forward(self, interaction=discord.Interaction, button=discord.ui.Button):
+            await interaction.response.send_message("this should go forward a page", ephemeral=True)
+        
     @client.tree.command(name="standings", description="Display standings for either the upper league or lower league.", guild=GUILD_ID)
     @app_commands.describe(
         league="(Optional) Choose a league to display standings for. Defaults to upper if no team is indicated.",
@@ -93,29 +102,29 @@ for GUILD_ID in GUILD_IDS:
             app_commands.Choice(name="lower", value="lower")
         ]
     )
-    async def standings(interaction: discord.Interaction, league: app_commands.Choice[str] = None, team: str = None, shown: str = "10"):
+    async def standings(interaction: discord.Interaction, league: app_commands.Choice[str] = None, team: str = None, shown: int = 10):
         maxTeams = 0 # placeholder for max teams there are
         if team is None:
-            if (league is None or league.name == "upper"):
+            if (league is None or league.value == "upper"):
                 embed = discord.Embed(title="2026 Upper League Standings", color=discord.Color.purple())
                 embed.set_thumbnail(url="https://cdn.discordapp.com/icons/829182450185142312/f78172b9c494c081f4c4ca6da29b76e2.png?size=1024")
                 embed.add_field(
                     name="Team",
                     value="\n".join([f"**{index+1}: {university}** ({score} Points, {bucholz} Bucholz, {point_differential} Point Differential)" 
-                                for index, (university, score, bucholz, point_differential,games_played) in enumerate(upperStandings[:min(int(shown),10)])]),
+                                for index, (university, score, bucholz, point_differential,games_played) in enumerate(upperStandings[:min(shown,10)])]),
                     inline=True
-                ) # fix with buttons later
-                await interaction.response.send_message(embed=embed)
+                )
+                await interaction.response.send_message(embed=embed, view=View())
             else:
                 embed = discord.Embed(title="2026 Lower League Standings", color=discord.Color.purple())
                 embed.set_thumbnail(url="https://cdn.discordapp.com/icons/829182450185142312/f78172b9c494c081f4c4ca6da29b76e2.png?size=1024")
                 embed.add_field(
                     name="Team",
                     value="\n".join([f"**{index+1}: {university}** ({score} Points, {bucholz} Bucholz, {point_differential} Point Differential)" 
-                        for index, (university, score, bucholz, point_differential,games_played) in enumerate(lowerStandings[:min(int(shown),10)])]),
+                        for index, (university, score, bucholz, point_differential,games_played) in enumerate(lowerStandings[:min(shown,10)])]),
                     inline=True
-                ) # fix with buttons later
-                await interaction.response.send_message(embed=embed)
+                )
+                await interaction.response.send_message(embed=embed, view=View())
         else:
             def find_university_info(university_name):
                 for index, (university, score, bucholz, point_differential, games_played) in enumerate(lowerStandings + upperStandings):
