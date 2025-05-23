@@ -27,7 +27,7 @@ MatchupsL = workbook.worksheet("MatchupsL")
 StandingsL = workbook.worksheet("Standings for 2025L")
 
 teams = Seedings.col_values(1)[1:]
-
+rosters = Seedings.get("A2:R45")
 upperStandings = StandingsU.get("C2:G17")
 lowerStandings = StandingsL.get("C2:G29")
 
@@ -106,7 +106,7 @@ async def standings(interaction: discord.Interaction, league: app_commands.Choic
             embed.add_field(
                 name="Team",
                 value="\n".join([f"**{index+1}: {university}** ({score} Points, {bucholz} Bucholz, {point_differential} Point Differential)" 
-                             for index, (university, score, bucholz, point_differential,games_played) in enumerate(lowerStandings[:min(int(shown),10)])]),
+                     for index, (university, score, bucholz, point_differential,games_played) in enumerate(lowerStandings[:min(int(shown),10)])]),
                 inline=True
             ) # fix with buttons later
             await interaction.response.send_message(embed=embed)
@@ -140,8 +140,25 @@ async def standings_autocomplete(interaction: discord.Interaction, current: str)
 @client.tree.command(name="roster", description="Display the full roster of a team.", guild=GUILD_ID)
 @app_commands.describe(team="Select a team.")
 async def roster(interaction: discord.Interaction, team: str):
-    await interaction.response.send_message(f"You picked: {team}.")
-    # later send the roster
+    def find_university_roster(university_name):
+            for info in rosters:
+                if info[0] == university_name:
+                    return info
+    embed = discord.Embed(title=f'2026 {team} Roster', color=discord.Color.purple())
+    embed.set_thumbnail(url="https://cdn.discordapp.com/icons/829182450185142312/f78172b9c494c081f4c4ca6da29b76e2.png?size=1024")
+    embed.add_field(
+        name="Starters",
+        value="\n".join(f'**{player}**'
+            for player in find_university_roster(team)[3:8]),
+        inline=True
+    )
+    embed.add_field(
+        name="Substitutes",
+        value="\n".join(f'**{player}**'
+            for player in find_university_roster(team)[13:18]),
+        inline=True
+    )
+    await interaction.response.send_message(embed=embed)
 
 @roster.autocomplete('team')
 async def roster_autocomplete(interaction: discord.Interaction, current: str):
