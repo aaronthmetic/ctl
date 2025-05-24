@@ -25,9 +25,11 @@ MatchupsU = workbook.worksheet("MatchupsU")
 StandingsU = workbook.worksheet("Standings for 2025U")
 MatchupsL = workbook.worksheet("MatchupsL")
 StandingsL = workbook.worksheet("Standings for 2025L")
+Lineups = workbook.worksheet("Lineups")
 
 teams = Seedings.col_values(1)[1:]
 rosters = Seedings.get("A2:R45")
+player_list = Seedings.batch_get(["D2:H","N2:R"])
 upperStandings = StandingsU.get("C2:G17")
 lowerStandings = StandingsL.get("C2:G29")
 
@@ -126,22 +128,25 @@ for GUILD_ID in GUILD_IDS:
                 )
                 await interaction.response.send_message(embed=embed, view=View())
         else:
-            def find_university_info(university_name):
-                for index, (university, score, bucholz, point_differential, games_played) in enumerate(lowerStandings + upperStandings):
-                    if university_name == university:
-                        if (index+1-len(lowerStandings))>0:
-                            return index+1-len(lowerStandings), score, bucholz, point_differential, games_played
-                        else:
-                            return index+1, score, bucholz, point_differential, games_played
-            rank, score, bucholz, point_differential, games_played = find_university_info(team)
-            embed = discord.Embed(title=f'2026 {team} Standings', color=discord.Color.purple())
-            embed.set_thumbnail(url="https://cdn.discordapp.com/icons/829182450185142312/f78172b9c494c081f4c4ca6da29b76e2.png?size=1024")
-            embed.add_field(name="Record", value=f'{score}-{int(games_played)-int(score)}', inline=True)
-            embed.add_field(name="Rank", value=rank, inline=True)
-            embed.add_field(name="", value="", inline=False)
-            embed.add_field(name="Bucholz", value=bucholz, inline=True)
-            embed.add_field(name="Point Differential", value=point_differential, inline=True)
-            await interaction.response.send_message(embed=embed)
+            if team not in teams:
+                await interaction.response.send_message("Invalid team.", ephemeral=True)
+            else:
+                def find_university_info(university_name):
+                    for index, (university, score, bucholz, point_differential, games_played) in enumerate(lowerStandings + upperStandings):
+                        if university_name == university:
+                            if (index+1-len(lowerStandings))>0:
+                                return index+1-len(lowerStandings), score, bucholz, point_differential, games_played
+                            else:
+                                return index+1, score, bucholz, point_differential, games_played
+                rank, score, bucholz, point_differential, games_played = find_university_info(team)
+                embed = discord.Embed(title=f'2026 {team} Standings', color=discord.Color.purple())
+                embed.set_thumbnail(url="https://cdn.discordapp.com/icons/829182450185142312/f78172b9c494c081f4c4ca6da29b76e2.png?size=1024")
+                embed.add_field(name="Record", value=f'{score}-{int(games_played)-int(score)}', inline=True)
+                embed.add_field(name="Rank", value=rank, inline=True)
+                embed.add_field(name="", value="", inline=False)
+                embed.add_field(name="Bucholz", value=bucholz, inline=True)
+                embed.add_field(name="Point Differential", value=point_differential, inline=True)
+                await interaction.response.send_message(embed=embed)
 
     @standings.autocomplete('team')
     async def standings_autocomplete(interaction: discord.Interaction, current: str):
@@ -155,25 +160,28 @@ for GUILD_ID in GUILD_IDS:
     @client.tree.command(name="roster", description="Display the full roster of a team.", guild=GUILD_ID)
     @app_commands.describe(team="Select a team.")
     async def roster(interaction: discord.Interaction, team: str):
-        def find_university_roster(university_name):
-                for info in rosters:
-                    if info[0] == university_name:
-                        return info
-        embed = discord.Embed(title=f'2026 {team} Roster', color=discord.Color.purple())
-        embed.set_thumbnail(url="https://cdn.discordapp.com/icons/829182450185142312/f78172b9c494c081f4c4ca6da29b76e2.png?size=1024")
-        embed.add_field(
-            name="Starters",
-            value="\n".join(f'**[{player}](https://ch.tetr.io/u/{player})**'
-                for player in find_university_roster(team)[3:8]),
-            inline=True
-        )
-        embed.add_field(
-            name="Substitutes",
-            value="\n".join(f'**[{player}](https://ch.tetr.io/u/{player})**'
-                for player in find_university_roster(team)[13:18]),
-            inline=True
-        )
-        await interaction.response.send_message(embed=embed)
+        if team not in teams:
+            await interaction.response.send_message("Invalid team.", ephemeral=True)
+        else:
+            def find_university_roster(university_name):
+                    for info in rosters:
+                        if info[0] == university_name:
+                            return info
+            embed = discord.Embed(title=f'2026 {team} Roster', color=discord.Color.purple())
+            embed.set_thumbnail(url="https://cdn.discordapp.com/icons/829182450185142312/f78172b9c494c081f4c4ca6da29b76e2.png?size=1024")
+            embed.add_field(
+                name="Starters",
+                value="\n".join(f'**[{player}](https://ch.tetr.io/u/{player})**'
+                    for player in find_university_roster(team)[3:8]),
+                inline=True
+            )
+            embed.add_field(
+                name="Substitutes",
+                value="\n".join(f'**[{player}](https://ch.tetr.io/u/{player})**'
+                    for player in find_university_roster(team)[13:18]),
+                inline=True
+            )
+            await interaction.response.send_message(embed=embed)
 
     @roster.autocomplete('team')
     async def roster_autocomplete(interaction: discord.Interaction, current: str):
@@ -183,5 +191,64 @@ for GUILD_ID in GUILD_IDS:
             app_commands.Choice(name=team, value=team)
             for team in limited
         ]
+    
+    @client.tree.command(name="setlineup", description="Set your team's lineup for a match", guild=GUILD_ID)
+    @app_commands.describe(
+        matchid="Match ID",
+        team="Your team",
+        p1="Player 1 (Optional: N/A if left unfilled)",
+        p2="Player 2 (Optional: N/A if left unfilled)",
+        p3="Player 3 (Optional: N/A if left unfilled)",
+        p4="Player 4 (Optional: N/A if left unfilled)",
+        p5="Player 5 (Optional: N/A if left unfilled)"
+    )
+    async def setlineup(interaction: discord.Interaction, matchid: int, team: str, p1: str = "N/A", p2: str = "N/A", p3: str = "N/A", p4: str = "N/A", p5: str = "N/A"):
+        position = 2
+        if team not in [Lineups.cell(matchid,1).value,Lineups.cell(matchid,12).value]:
+            await interaction.response.send_message("Invalid team.", ephemeral=True)
+        else:
+            if team == Lineups.cell(matchid,12).value:
+                position = 7
+            def find_university_roster(university_name):
+                    for info in rosters:
+                        if info[0] == university_name:
+                            return info
+            if not all (p in find_university_roster(team)[3:8] + find_university_roster(team)[13:18] + ["N/A"] for p in [p1, p2, p3, p4, p5]):
+                await interaction.response.send_message("Invalid player.", ephemeral=True)
+            else:
+                embed = discord.Embed(title=f'Match {matchid}: {team}', color=discord.Color.purple())
+                embed.add_field(
+                    name="Lineup",
+                    value="\n".join(f'**[{player}](https://ch.tetr.io/u/{player})**' if player != "N/A" else f'**{player}**'
+                        for player in [p1,p2,p3,p4,p5]),
+                    inline=True
+                )
+                await interaction.response.send_message(embed=embed, ephemeral=True)
+                for i, player in enumerate([p1, p2, p3, p4, p5]):
+                    Lineups.update_cell(matchid, position + i, player)
+    
+    @setlineup.autocomplete('team')
+    async def roster_autocomplete(interaction: discord.Interaction, current: str):
+        filtered = [team for team in teams if current.lower() in team.lower()]
+        limited = filtered[:25]
+        return [
+            app_commands.Choice(name=team, value=team)
+            for team in limited
+        ]
+    for player in ['p1', 'p2', 'p3', 'p4', 'p5']:
+        @setlineup.autocomplete(player)
+        async def roster_autocomplete(interaction: discord.Interaction, current: str):
+            filtered = list(dict.fromkeys(
+                player
+                for sublist1 in player_list
+                for sublist2 in sublist1
+                for player in sublist2
+                if current.lower() in player.lower()
+            ))
+            limited = filtered[:25]
+            return [
+                app_commands.Choice(name=player, value=player)
+                for player in limited
+            ]
 
 client.run(token)
