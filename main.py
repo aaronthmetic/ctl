@@ -209,13 +209,21 @@ for GUILD_ID in GUILD_IDS:
     async def setlineup(interaction: discord.Interaction, matchid: int, team: str, p1: str = "N/A", p2: str = "N/A", p3: str = "N/A", p4: str = "N/A", p5: str = "N/A"):
         rosters = Seedings.get("A2:R45")
         position = 2
+        message = ""
         if matchid > len(MatchInfo.get("A:A")):
             await interaction.response.send_message("Invalid match ID.", ephemeral=True)
         elif team not in [MatchInfo.cell(matchid,1).value,MatchInfo.cell(matchid,12).value]:
             await interaction.response.send_message("Invalid team.", ephemeral=True)
+        elif MatchInfo.cell(matchid,13).value is not None and MatchInfo.cell(matchid,13).value[0] != '0' and MatchInfo.cell(matchid,13).value[3] != '0':
+            await interaction.response.send_message("Match has already started. Lineups cannot be modified.", ephemeral=True)
         else:
             if team == MatchInfo.cell(matchid,12).value:
                 position = 7
+                if MatchInfo.cell(matchid,13).value[3] != '0':
+                    message = "⚠️ **WARNING:** You have already made a blindpick. This lineup change may change your blindpick."
+            else:
+                if MatchInfo.cell(matchid,13).value[0] != '0':
+                    message = "⚠️ **WARNING:** You have already made a blindpick. This lineup change may change your blindpick."
             def find_university_roster(university_name):
                     for info in rosters:
                         if info[0] == university_name:
@@ -230,7 +238,7 @@ for GUILD_ID in GUILD_IDS:
                         for player in [p1,p2,p3,p4,p5]),
                     inline=True
                 )
-                await interaction.response.send_message(embed=embed, ephemeral=True)
+                await interaction.response.send_message(message, embed=embed, ephemeral=True)
                 for i, player in enumerate([p1, p2, p3, p4, p5]):
                     MatchInfo.update_cell(matchid, position + i, player)
     
