@@ -263,13 +263,13 @@ for GUILD_ID in GUILD_IDS:
         embed = discord.Embed(title=f'Match {matchid}', color=discord.Color.purple())
         embed.add_field(
             name=Lineups.cell(matchid,1).value,
-            value="\n".join(f'**[{player}](https://ch.tetr.io/u/{player})**' if player != "N/A" and player is not None else "N/A"
+            value="\n".join(f'**[{player}](https://ch.tetr.io/u/{player})**' if player != "N/A" and player is not None else "**N/A**"
                 for player in [Lineups.cell(matchid,i).value for i in range(2,7)]),
             inline=True
         )
         embed.add_field(
             name=Lineups.cell(matchid,12).value,
-            value="\n".join(f'**[{player}](https://ch.tetr.io/u/{player})**' if player != "N/A" and player is not None else "N/A"
+            value="\n".join(f'**[{player}](https://ch.tetr.io/u/{player})**' if player != "N/A" and player is not None else "**N/A**"
                 for player in [Lineups.cell(matchid,i).value for i in range(7,12)]),
             inline=True
         )
