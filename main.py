@@ -25,7 +25,7 @@ MatchupsU = workbook.worksheet("MatchupsU")
 StandingsU = workbook.worksheet("Standings for 2025U")
 MatchupsL = workbook.worksheet("MatchupsL")
 StandingsL = workbook.worksheet("Standings for 2025L")
-Lineups = workbook.worksheet("Lineups")
+MatchInfo = workbook.worksheet("MatchInfo")
 
 load_dotenv()
 token = os.getenv('DISCORD_TOKEN')
@@ -208,12 +208,12 @@ for GUILD_ID in GUILD_IDS:
     async def setlineup(interaction: discord.Interaction, matchid: int, team: str, p1: str = "N/A", p2: str = "N/A", p3: str = "N/A", p4: str = "N/A", p5: str = "N/A"):
         rosters = Seedings.get("A2:R45")
         position = 2
-        if matchid > len(Lineups.get("A:A")):
+        if matchid > len(MatchInfo.get("A:A")):
             await interaction.response.send_message("Invalid match ID.", ephemeral=True)
-        elif team not in [Lineups.cell(matchid,1).value,Lineups.cell(matchid,12).value]:
+        elif team not in [MatchInfo.cell(matchid,1).value,MatchInfo.cell(matchid,12).value]:
             await interaction.response.send_message("Invalid team.", ephemeral=True)
         else:
-            if team == Lineups.cell(matchid,12).value:
+            if team == MatchInfo.cell(matchid,12).value:
                 position = 7
             def find_university_roster(university_name):
                     for info in rosters:
@@ -231,7 +231,7 @@ for GUILD_ID in GUILD_IDS:
                 )
                 await interaction.response.send_message(embed=embed, ephemeral=True)
                 for i, player in enumerate([p1, p2, p3, p4, p5]):
-                    Lineups.update_cell(matchid, position + i, player)
+                    MatchInfo.update_cell(matchid, position + i, player)
     
     @setlineup.autocomplete('team')
     async def roster_autocomplete(interaction: discord.Interaction, current: str):
@@ -262,20 +262,20 @@ for GUILD_ID in GUILD_IDS:
     @client.tree.command(name="lineups", description="See lineups for a match.", guild=GUILD_ID)
     @app_commands.describe(matchid="Match ID")
     async def lineups(interaction:discord.Interaction, matchid: int):
-        if matchid > len(Lineups.get("A:A")):
+        if matchid > len(MatchInfo.get("A:A")):
             await interaction.response.send_message("Invalid match ID.", ephemeral=True)
         else:
             embed = discord.Embed(title=f'Match {matchid}', color=discord.Color.purple())
             embed.add_field(
-                name=Lineups.cell(matchid,1).value,
+                name=MatchInfo.cell(matchid,1).value,
                 value="\n".join(f'**[{player}](https://ch.tetr.io/u/{player})**' if player != "N/A" and player is not None else "**N/A**"
-                    for player in [Lineups.cell(matchid,i).value for i in range(2,7)]),
+                    for player in [MatchInfo.cell(matchid,i).value for i in range(2,7)]),
                 inline=True
             )
             embed.add_field(
-                name=Lineups.cell(matchid,12).value,
+                name=MatchInfo.cell(matchid,12).value,
                 value="\n".join(f'**[{player}](https://ch.tetr.io/u/{player})**' if player != "N/A" and player is not None else "**N/A**"
-                    for player in [Lineups.cell(matchid,i).value for i in range(7,12)]),
+                    for player in [MatchInfo.cell(matchid,i).value for i in range(7,12)]),
                 inline=True
             )
             await interaction.response.send_message(embed=embed)
