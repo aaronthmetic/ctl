@@ -39,7 +39,7 @@ token = os.getenv('DISCORD_TOKEN')
 class Client(commands.Bot):
     async def on_ready(self):
         print(f'Logged on as {self.user}!')
-        guild_ids = [761274425475072010,1163677315553824768]
+        guild_ids = [761274425475072010,1163677315553824768,1375638530126119062]
         try:
             for guild_id in guild_ids:
                 guild = discord.Object(id=guild_id)
@@ -54,7 +54,7 @@ intents.members = True
 intents.presences = True
 client = Client(command_prefix="!", intents=intents, activity = discord.Game(name="TETR.IO"), status=discord.Status.idle)
 
-GUILD_IDS = [discord.Object(id=761274425475072010), discord.Object(id=1163677315553824768)]
+GUILD_IDS = [discord.Object(id=761274425475072010), discord.Object(id=1163677315553824768),discord.Object(id=1375638530126119062)]
     
 for GUILD_ID in GUILD_IDS:
     
@@ -63,7 +63,9 @@ for GUILD_ID in GUILD_IDS:
         embed = discord.Embed(title="Help", color=discord.Color.purple())
         embed.add_field(name="/help", value="Display this message!", inline=False)
         embed.add_field(name="/roster `[team]`", value="Display the roster of any team.", inline=False)
-        embed.add_field(name="/standings `[league]` `[team]` `[shown]`", value="Display the standings or the record of a specific team. Entry for `team` overrides all other values. `league` defaults to upper league, `shown` defaults to 10.")
+        embed.add_field(name="/standings `[league]` `[team]` `[shown]`", value="Display the standings or the record of a specific team. Entry for `team` overrides all other values. `league` defaults to upper league, `shown` defaults to 10.", inline=False)
+        embed.add_field(name="/setlineup `[matchid]` `[team]` `[p1]` `[p2]` `[p3]` `[p4]` `[p5]`", value="Set a team's lineup for a certain match. All players default to `N/A`.", inline=False)
+        embed.add_field(name="/lineups `[matchid]`", value="Display the lineups of both teams for a certain match.", inline=False)
         await interaction.response.send_message(embed=embed)
 
     # getting a 403 for some reason so i'll figure it out later
@@ -204,7 +206,9 @@ for GUILD_ID in GUILD_IDS:
     )
     async def setlineup(interaction: discord.Interaction, matchid: int, team: str, p1: str = "N/A", p2: str = "N/A", p3: str = "N/A", p4: str = "N/A", p5: str = "N/A"):
         position = 2
-        if team not in [Lineups.cell(matchid,1).value,Lineups.cell(matchid,12).value]:
+        if matchid > len(Lineups.get("A:A")):
+            await interaction.response.send_message("Invalid match ID.", ephemeral=True)
+        elif team not in [Lineups.cell(matchid,1).value,Lineups.cell(matchid,12).value]:
             await interaction.response.send_message("Invalid team.", ephemeral=True)
         else:
             if team == Lineups.cell(matchid,12).value:
@@ -250,5 +254,25 @@ for GUILD_ID in GUILD_IDS:
                 app_commands.Choice(name=player, value=player)
                 for player in limited
             ]
+    
+    @client.tree.command(name="lineups", description="See lineups for a match.", guild=GUILD_ID)
+    @app_commands.describe(matchid="Match ID")
+    async def lineups(interaction:discord.Interaction, matchid: int):
+        if matchid > len(Lineups.get("A:A")):
+            await interaction.response.send_message("Invalid match ID.", ephemeral=True)
+        embed = discord.Embed(title=f'Match {matchid}', color=discord.Color.purple())
+        embed.add_field(
+            name=Lineups.cell(matchid,1).value,
+            value="\n".join(f'**[{player}](https://ch.tetr.io/u/{player})**' if player != "N/A" and player is not None else "N/A"
+                for player in [Lineups.cell(matchid,i).value for i in range(2,7)]),
+            inline=True
+        )
+        embed.add_field(
+            name=Lineups.cell(matchid,12).value,
+            value="\n".join(f'**[{player}](https://ch.tetr.io/u/{player})**' if player != "N/A" and player is not None else "N/A"
+                for player in [Lineups.cell(matchid,i).value for i in range(7,12)]),
+            inline=True
+        )
+        await interaction.response.send_message(embed=embed)
 
 client.run(token)
