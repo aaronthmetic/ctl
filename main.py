@@ -288,8 +288,10 @@ for GUILD_ID in GUILD_IDS:
             await interaction.response.send_message("Invalid match ID.", ephemeral=True)
         elif team not in [MatchInfo.cell(matchid,1).value,MatchInfo.cell(matchid,12).value]:
             await interaction.response.send_message("Invalid team.", ephemeral=True)
+        elif MatchInfo.cell(matchid,13).value is not None and MatchInfo.cell(matchid,13).value[0] != '0' and MatchInfo.cell(matchid,13).value[3] != '0':
+            await interaction.response.send_message("Match has already been started.", ephemeral=True)
         else: # deal with this later for blindpick select menu
-            if (team == MatchInfo.cell(matchid,1).value and MatchInfo.cell(matchid,1) is None) or (team == MatchInfo.cell(matchid,12).value and MatchInfo.cell(matchid,7) is None):
+            if (team == MatchInfo.cell(matchid,1).value and MatchInfo.cell(matchid,1).value is None) or (team == MatchInfo.cell(matchid,12).value and MatchInfo.cell(matchid,7).value is None):
                 await interaction.response.send_message("Roster must be set.", ephemeral=True)
             else:
                 class Select(discord.ui.Select):
