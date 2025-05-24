@@ -27,12 +27,6 @@ MatchupsL = workbook.worksheet("MatchupsL")
 StandingsL = workbook.worksheet("Standings for 2025L")
 Lineups = workbook.worksheet("Lineups")
 
-teams = Seedings.col_values(1)[1:]
-rosters = Seedings.get("A2:R45")
-player_list = Seedings.batch_get(["D2:H","N2:R"])
-upperStandings = StandingsU.get("C2:G17")
-lowerStandings = StandingsL.get("C2:G29")
-
 load_dotenv()
 token = os.getenv('DISCORD_TOKEN')
 
@@ -107,6 +101,9 @@ for GUILD_ID in GUILD_IDS:
         ]
     )
     async def standings(interaction: discord.Interaction, league: app_commands.Choice[str] = None, team: str = None, shown: int = 10):
+        teams = Seedings.col_values(1)[1:]
+        upperStandings = StandingsU.get("C2:G17")
+        lowerStandings = StandingsL.get("C2:G29")
         maxTeams = 0 # placeholder for max teams there are
         if team is None:
             if (league is None or league.value == "upper"):
@@ -152,6 +149,7 @@ for GUILD_ID in GUILD_IDS:
 
     @standings.autocomplete('team')
     async def standings_autocomplete(interaction: discord.Interaction, current: str):
+        teams = Seedings.col_values(1)[1:]
         filtered = [team for team in teams if current.lower() in team.lower()]
         limited = filtered[:25]
         return [
@@ -162,6 +160,8 @@ for GUILD_ID in GUILD_IDS:
     @client.tree.command(name="roster", description="Display the full roster of a team.", guild=GUILD_ID)
     @app_commands.describe(team="Select a team.")
     async def roster(interaction: discord.Interaction, team: str):
+        rosters = Seedings.get("A2:R45")
+        teams = Seedings.col_values(1)[1:]
         if team not in teams:
             await interaction.response.send_message("Invalid team.", ephemeral=True)
         else:
@@ -187,6 +187,7 @@ for GUILD_ID in GUILD_IDS:
 
     @roster.autocomplete('team')
     async def roster_autocomplete(interaction: discord.Interaction, current: str):
+        teams = Seedings.col_values(1)[1:]
         filtered = [team for team in teams if current.lower() in team.lower()]
         limited = filtered[:25]
         return [
@@ -205,6 +206,7 @@ for GUILD_ID in GUILD_IDS:
         p5="Player 5 (Optional: N/A if left unfilled)"
     )
     async def setlineup(interaction: discord.Interaction, matchid: int, team: str, p1: str = "N/A", p2: str = "N/A", p3: str = "N/A", p4: str = "N/A", p5: str = "N/A"):
+        rosters = Seedings.get("A2:R45")
         position = 2
         if matchid > len(Lineups.get("A:A")):
             await interaction.response.send_message("Invalid match ID.", ephemeral=True)
@@ -233,6 +235,7 @@ for GUILD_ID in GUILD_IDS:
     
     @setlineup.autocomplete('team')
     async def roster_autocomplete(interaction: discord.Interaction, current: str):
+        teams = Seedings.col_values(1)[1:]
         filtered = [team for team in teams if current.lower() in team.lower()]
         limited = filtered[:25]
         return [
@@ -242,6 +245,7 @@ for GUILD_ID in GUILD_IDS:
     for player in ['p1', 'p2', 'p3', 'p4', 'p5']:
         @setlineup.autocomplete(player)
         async def roster_autocomplete(interaction: discord.Interaction, current: str):
+            player_list = Seedings.batch_get(["D2:H","N2:R"])
             filtered = list(dict.fromkeys(
                 player
                 for sublist1 in player_list
