@@ -80,7 +80,7 @@ for GUILD_ID in GUILD_IDS:
             await interaction.response.send_message(response.status_code)
     '''
 
-    class View(discord.ui.View):
+    class View(discord.ui.View): # NOTE TO SELF PLEASE FIX THIS
         @discord.ui.button(style=discord.ButtonStyle.gray, emoji="⬅️")
         async def backward(self, interaction=discord.Interaction, button=discord.ui.Button):
             await interaction.response.send_message("this should go back a page", ephemeral=True)
@@ -219,10 +219,10 @@ for GUILD_ID in GUILD_IDS:
         else:
             if team == MatchInfo.cell(matchid,12).value:
                 position = 7
-                if MatchInfo.cell(matchid,13).value[3] != '0':
+                if MatchInfo.cell(matchid,13).value is not None and MatchInfo.cell(matchid,13).value[3] != '0':
                     message = "⚠️ **WARNING:** You have already made a blindpick. This lineup change may change your blindpick."
             else:
-                if MatchInfo.cell(matchid,13).value[0] != '0':
+                if MatchInfo.cell(matchid,13).value is not None and MatchInfo.cell(matchid,13).value[0] != '0':
                     message = "⚠️ **WARNING:** You have already made a blindpick. This lineup change may change your blindpick."
             def find_university_roster(university_name):
                     for info in rosters:
@@ -430,6 +430,54 @@ for GUILD_ID in GUILD_IDS:
     @client.tree.command(name="forfeitmatch", description="(Organizer Use) Forfeit a match for a team.", guild=GUILD_ID)
     @app_commands.describe(matchid="Match ID", team1="Team to lose by forfeit", team2="(Optional) Use in case of double forfeit.")
     async def forfeitmatch(interaction:discord.Interaction, matchid: int, team1: str, team2: str = None):
-        return
+        if matchid > len(MatchInfo.get("A:A")):
+            await interaction.response.send_message("Invalid match ID.", ephemeral=True)
+        elif (MatchInfo.cell(matchid,18).value == "TRUE"):
+            await interaction.response.send_message("Match already completed.", ephemeral=True)
+        else:
+            if (team1 == MatchInfo.cell(matchid,1).value and team2 == MatchInfo.cell(matchid,12).value) or (team1 == MatchInfo.cell(matchid,12).value and team2 == MatchInfo.cell(matchid,1).value):
+                for i in range(13,18):
+                    MatchInfo.update_cell(matchid, i, "000000")
+                await interaction.response.send_message(f'Double forfeited Match {matchid}.', ephemeral=True)
+            elif team1 == MatchInfo.cell(matchid,1).value:
+                if MatchInfo.cell(matchid,7).value is None:
+                    await interaction.response.send_message("Roster must be set.", ephemeral=True)
+                    return
+                else:
+                    for i in range(13,18):
+                        MatchInfo.update_cell(matchid, i, f'00077{i-12}')
+                    await interaction.response.send_message(f'{team1} forfeited Match {matchid}.', ephemeral=True)
+            elif team1 == MatchInfo.cell(matchid,12).value:
+                if MatchInfo.cell(matchid,2).value is None:
+                    await interaction.response.send_message("Roster must be set.", ephemeral=True)
+                    return
+                else:
+                    for i in range(13,18):
+                        MatchInfo.update_cell(matchid, i, f'{i-12}77000')
+                    await interaction.response.send_message(f'{team1} forfeited Match {matchid}.', ephemeral=True)
+            else:
+                await interaction.response.send_message("Invalid team.", ephemeral=True)
+                return
+            MatchInfo.update_cell(matchid,18,"TRUE")
+    
+    @forfeitmatch.autocomplete('team1')
+    async def roster_autocomplete(interaction: discord.Interaction, current: str):
+        teams = Seedings.col_values(1)[1:]
+        filtered = [team for team in teams if current.lower() in team.lower()]
+        limited = filtered[:25]
+        return [
+            app_commands.Choice(name=team, value=team)
+            for team in limited
+        ]
+    
+    @forfeitmatch.autocomplete('team2')
+    async def roster_autocomplete(interaction: discord.Interaction, current: str):
+        teams = Seedings.col_values(1)[1:]
+        filtered = [team for team in teams if current.lower() in team.lower()]
+        limited = filtered[:25]
+        return [
+            app_commands.Choice(name=team, value=team)
+            for team in limited
+        ]
 
 client.run(token)
