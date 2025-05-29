@@ -56,29 +56,64 @@ for GUILD_ID in GUILD_IDS:
     async def help(interaction: discord.Interaction):
         embed = discord.Embed(title="Help", color=discord.Color.purple())
         embed.add_field(name="/help", value="Display this message!", inline=False)
-        embed.add_field(name="/roster `[team]`", value="Display the roster of any team.", inline=False)
-        embed.add_field(name="/standings `[league]` `[team]` `[shown]`", value="Display the standings or the record of a specific team. Entry for `team` overrides all other values. `league` defaults to upper league, `shown` defaults to 10.", inline=False)
-        embed.add_field(name="/setlineup `[matchid]` `[team]` `[p1]` `[p2]` `[p3]` `[p4]` `[p5]`", value="Set a team's lineup for a certain match. All players default to `N/A`.", inline=False)
-        embed.add_field(name="/lineups `[matchid]`", value="Display the lineups of both teams for a certain match.", inline=False)
+        embed.add_field(name="/getstats", value="Display the Tetra League stats for a given TETR.IO player.", inline=False)
+        embed.add_field(name="/roster `[team]`", value="Display the roster of a given team.", inline=False)
+        embed.add_field(name="/standings `[league]` `[team]` `[shown]`", value="Display the standings of a given league or the record of a given team. Entry for `team` overrides all other values. `league` defaults to upper league, `shown` defaults to 10.", inline=False)
+        embed.add_field(name="/setlineup `[matchid]` `[team]` `[p1]` `[p2]` `[p3]` `[p4]` `[p5]`", value="Set a team's lineup for a given match. All players default to `N/A`.", inline=False)
+        embed.add_field(name="/lineups `[matchid]`", value="Display the lineups of both teams for a given match.", inline=False)
+        embed.add_field(name="/blindpick `[matchid]` `[team]`", value="Initiate blindpick for a given match.", inline=False)
+        embed.add_field(name="/matchresults `[matchid]`", value="Display the match results for a given completed match.", inline=False)
+        embed.add_field(name="/forfeitmatch `[matchid]` `[team1]` `[team2]`", value="**(Organizer Use)** Forfeit a match on behalf of a given team. Filling `[team2]` yields a double forfeit.", inline=False)
         await interaction.response.send_message(embed=embed)
 
-    # getting a 403 for some reason so i'll figure it out later
-    '''
     @client.tree.command(name="getstats", description="Get the stats of any TETR.IO user!", guild=GUILD_ID)
+    @app_commands.describe(
+        username="Username of the TETR.IO user to search."
+    )
     async def getStats(interaction: discord.Interaction, username: str):
-        url = f"https://ch.tetr.io/api/users/{username.lower()}/summaries/league"
-        response = requests.get(url)
-        if response.status_code == 200:
-            rank = "rank"
-            tr = "tr"
-            glicko = "glicko"
-            apm = "apm"
-            pps = "pps"
-            vs = "vs"
-            await interaction.response.send_message(f'{username.lower()} stats:\nRank: {rank}\nTR: {tr}\nGlicko: {glicko}\nAPM: {apm}\nPPS:{pps}\nVS:{vs}')
+        league_url = f"https://ch.tetr.io/api/users/{username.lower()}/summaries/league"
+        user_url = f"https://ch.tetr.io/api/users/{username.lower()}"
+        headers = {"User-Agent": "aaronthmetic"}
+        league = requests.get(league_url, headers=headers)
+        if league.status_code == 200:
+            user = requests.get(user_url, headers=headers)
+            data = league.json().get("data", {})
+            userdata = user.json().get("data", {})
+            embed = discord.Embed(title=f'{username.upper()}\'s Stats', color=discord.Color.purple())
+            embed.set_thumbnail(url=f'https://tetr.io/user-content/avatars/{ userdata.get("_id") }.jpg?rv={ userdata.get("avatar_revision") }')
+            embed.add_field(
+                    name="Rank",
+                    value=data.get("rank", -1).upper(),
+                    inline=True
+                )
+            embed.add_field(
+                    name="TR",
+                    value=round(data.get("tr", -1)),
+                    inline=True
+                )
+            embed.add_field(
+                    name="Glicko",
+                    value=round(data.get("glicko", -1), 2),
+                    inline=True
+                )
+            embed.add_field(
+                    name="APM",
+                    value=round(data.get("apm", -1) or -1, 2),
+                    inline=True
+                )
+            embed.add_field(
+                    name="PPS",
+                    value=round(data.get("pps", -1) or -1, 2),
+                    inline=True
+                )
+            embed.add_field(
+                    name="VS",
+                    value=round(data.get("vs", -1) or -1, 2),
+                    inline=True
+                )
+            await interaction.response.send_message(embed=embed)
         else:
-            await interaction.response.send_message(response.status_code)
-    '''
+            await interaction.response.send_message(f"Error {league.status_code}: Access denied.")
 
     class View(discord.ui.View): # NOTE TO SELF PLEASE FIX THIS
         @discord.ui.button(style=discord.ButtonStyle.gray, emoji="⬅️")
