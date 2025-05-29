@@ -289,16 +289,16 @@ for GUILD_ID in GUILD_IDS:
             )
             await interaction.response.send_message(embed=embed)
             
-    @client.tree.command(name="startmatch", description="Initiate a scheduled match.", guild=GUILD_ID)
+    @client.tree.command(name="blindpick", description="Blindpick for a scheduled match.", guild=GUILD_ID)
     @app_commands.describe(matchid="Match ID", team="Your team")
-    async def startmatch(interaction:discord.Interaction, matchid:int, team:str):
+    async def blindpick(interaction:discord.Interaction, matchid: int, team: str):
         if matchid > len(MatchInfo.get("A:A")):
             await interaction.response.send_message("Invalid match ID.", ephemeral=True)
         elif team not in [MatchInfo.cell(matchid,1).value,MatchInfo.cell(matchid,12).value]:
             await interaction.response.send_message("Invalid team.", ephemeral=True)
-        elif MatchInfo.cell(matchid,13).value is not None and MatchInfo.cell(matchid,13).value[0] != '0' and MatchInfo.cell(matchid,13).value[3] != '0':
+        elif MatchInfo.cell(matchid,13).value is not None and MatchInfo.cell(matchid,13).value[0] != '0' and MatchInfo.cell(matchid,13).value[5] != '0':
             await interaction.response.send_message("Match has already been started.", ephemeral=True)
-        else: # deal with this later for blindpick select menu
+        else:
             if (team == MatchInfo.cell(matchid,1).value and MatchInfo.cell(matchid,1).value is None) or (team == MatchInfo.cell(matchid,12).value and MatchInfo.cell(matchid,7).value is None):
                 await interaction.response.send_message("Roster must be set.", ephemeral=True)
             else:
@@ -324,7 +324,7 @@ for GUILD_ID in GUILD_IDS:
                             MatchInfo.update_cell(
                                 matchid,
                                 13,
-                                (f'{index+1}000' if MatchInfo.cell(matchid,13).value is None
+                                (f'{index+1}00000' if MatchInfo.cell(matchid,13).value is None
                                  else str(index+1)+MatchInfo.cell(matchid,13).value[1:])
                             )
                         else:
@@ -335,16 +335,16 @@ for GUILD_ID in GUILD_IDS:
                             MatchInfo.update_cell(
                                 matchid,
                                 13,
-                                (f'000{index+1}' if MatchInfo.cell(matchid,13).value is None
-                                 else MatchInfo.cell(matchid,13).value[:3]+str(index+1))
+                                (f'00000{index+1}' if MatchInfo.cell(matchid,13).value is None
+                                 else MatchInfo.cell(matchid,13).value[:5]+str(index+1))
                             )
                         for child in self.view.children:
                             child.disabled = True
                         await interaction.message.edit(view=self.view)
-                        if MatchInfo.cell(matchid,13).value[0] != '0' and MatchInfo.cell(matchid,13).value[3] != '0':
+                        if MatchInfo.cell(matchid,13).value[0] != '0' and MatchInfo.cell(matchid,13).value[5] != '0':
                             embed = discord.Embed(title=f'Match {matchid} Blindpick Results', color=discord.Color.purple())
                             blindpicked1 = MatchInfo.cell(matchid, 1 + int(MatchInfo.cell(matchid,13).value[0])).value
-                            blindpicked2 = MatchInfo.cell(matchid, 6 + int(MatchInfo.cell(matchid,13).value[3])).value
+                            blindpicked2 = MatchInfo.cell(matchid, 6 + int(MatchInfo.cell(matchid,13).value[5])).value
                             embed.add_field(
                                 name=MatchInfo.cell(matchid,1).value,
                                 value=(f'**[{blindpicked1}](https://ch.tetr.io/u/{blindpicked1})**' if blindpicked1 != "N/A" else "**N/A**"),
@@ -362,7 +362,7 @@ for GUILD_ID in GUILD_IDS:
                         self.add_item(Select(author))
                 await interaction.response.send_message(view=SelectView(interaction.user))
     
-    @startmatch.autocomplete('team')
+    @blindpick.autocomplete('team')
     async def roster_autocomplete(interaction: discord.Interaction, current: str):
         teams = Seedings.col_values(1)[1:]
         filtered = [team for team in teams if current.lower() in team.lower()]
@@ -371,5 +371,65 @@ for GUILD_ID in GUILD_IDS:
             app_commands.Choice(name=team, value=team)
             for team in limited
         ]
+    
+    @client.tree.command(name="matchresults", description="Shows match results for a given match.", guild=GUILD_ID)
+    async def matchresults(interaction:discord.Interaction, matchid: int):
+        if matchid > len(MatchInfo.get("A:A")):
+            await interaction.response.send_message("Invalid match ID.", ephemeral=True)
+        elif (MatchInfo.cell(matchid,18).value == "FALSE"):
+            await interaction.response.send_message("Match not completed.", ephemeral=True)
+        else:
+            await interaction.response.defer()
+            round1, round2, round3, round4, round5 = [MatchInfo.cell(matchid,i).value for i in range(13,18)]
+            results = ""
+            team1score = 0
+            team2score = 0
+            team1rounds = 0
+            team2rounds = 0
+            team1lineup = [MatchInfo.cell(matchid,i).value for i in range(2,7)]
+            team2lineup = [MatchInfo.cell(matchid,i).value for i in range(7,12)]
+            winner = 0
+            for round in [round1, round2, round3, round4, round5]:
+                player1 = int(round[0])-1
+                player2 = int(round[5])-1
+                if player1 == -1:
+                    results += "**N/A** "
+                else:
+                    results += f'**[{team1lineup[player1]}](https://ch.tetr.io/u/{team1lineup[player1]})** '
+                results += f'{round[1]} - {round[3]} '
+                if player2 == -1:
+                    results += "**N/A**\n"
+                else:
+                    results += f'**[{team2lineup[player2]}](https://ch.tetr.io/u/{team2lineup[player2]})**\n'
+                team1score += int(round[1])
+                team2score += int(round[3])
+                if int(round[1]) > int(round[3]):
+                    team1score += 1
+                    team1rounds += 1
+                elif int(round[1]) < int(round[3]):
+                    team2score += 1
+                    team2rounds += 1
+                if team1score > team2score:
+                    winner = 1
+                elif team1score < team2score:
+                    winner = 2
+                else:
+                    if team1rounds > team2rounds:
+                        winner = 1
+                    elif team1rounds < team2rounds:
+                        winner = 1
+                
+            embed = discord.Embed(title=f'Match {matchid} Results', color=discord.Color.purple())
+            embed.add_field(
+                name=f'{MatchInfo.cell(matchid,1).value} {"(W)" if winner == 1 else "(L)"} {team1score} - {team2score} {"(W)" if winner == 2 else "(L)"} {MatchInfo.cell(matchid,12).value}',
+                value=results,
+                inline=True
+            )
+            await interaction.followup.send(embed=embed)
+
+    @client.tree.command(name="forfeitmatch", description="(Organizer Use) Forfeit a match for a team.", guild=GUILD_ID)
+    @app_commands.describe(matchid="Match ID", team1="Team to lose by forfeit", team2="(Optional) Use in case of double forfeit.")
+    async def forfeitmatch(interaction:discord.Interaction, matchid: int, team1: str, team2: str = None):
+        return
 
 client.run(token)
