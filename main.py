@@ -431,17 +431,17 @@ for GUILD_ID in GUILD_IDS:
                     results += "**N/A** "
                 else:
                     results += f'**[{team1lineup[player1]}](https://ch.tetr.io/u/{team1lineup[player1]})** '
-                results += f'{round[1]} - {round[3]} '
+                results += f'{round[1]} - {round[2]} '
                 if player2 == -1:
                     results += "**N/A**\n"
                 else:
                     results += f'**[{team2lineup[player2]}](https://ch.tetr.io/u/{team2lineup[player2]})**\n'
                 team1score += int(round[1])
-                team2score += int(round[3])
-                if int(round[1]) > int(round[3]):
+                team2score += int(round[2])
+                if int(round[1]) > int(round[2]):
                     team1score += 1
                     team1rounds += 1
-                elif int(round[1]) < int(round[3]):
+                elif int(round[1]) < int(round[2]):
                     team2score += 1
                     team2rounds += 1
                 if team1score > team2score:
@@ -480,7 +480,7 @@ for GUILD_ID in GUILD_IDS:
                     return
                 else:
                     for i in range(13,18):
-                        MatchInfo.update_cell(matchid, i, f'00077{i-12}1')
+                        MatchInfo.update_cell(matchid, i, f'00707{i-12}1')
                     await interaction.response.send_message(f'{team1} forfeited Match {matchid}.', ephemeral=True)
             elif team1 == MatchInfo.cell(matchid,12).value:
                 if MatchInfo.cell(matchid,2).value is None:
@@ -488,7 +488,7 @@ for GUILD_ID in GUILD_IDS:
                     return
                 else:
                     for i in range(13,18):
-                        MatchInfo.update_cell(matchid, i, f'{i-12}770001')
+                        MatchInfo.update_cell(matchid, i, f'{i-12}707001')
                     await interaction.response.send_message(f'{team1} forfeited Match {matchid}.', ephemeral=True)
             else:
                 await interaction.response.send_message("Invalid team.", ephemeral=True)
