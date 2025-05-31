@@ -289,7 +289,7 @@ for GUILD_ID in GUILD_IDS:
         ]
     
     # add validation of team status
-    @client.tree.command(name="setlineup", description="Set your team's lineup for a match", guild=GUILD_ID)
+    @client.tree.command(name="setlineup", description="Set your team's lineup for a match", guild=GUILD_ID) # modify this later for team from roles
     @app_commands.describe(
         matchid="Match ID",
         team="Your team",
@@ -382,7 +382,7 @@ for GUILD_ID in GUILD_IDS:
             )
             await interaction.response.send_message(embed=embed)
             
-    @client.tree.command(name="blindpick", description="Blindpick for a scheduled match.", guild=GUILD_ID)
+    @client.tree.command(name="blindpick", description="Blindpick for a scheduled match.", guild=GUILD_ID) # modify this later for team from roles
     @app_commands.describe(matchid="Match ID", team="Your team")
     async def blindpick(interaction:discord.Interaction, matchid: int, team: str):
         if matchid > len(MatchInfo.get("A:A")):
