@@ -48,6 +48,64 @@ intents.members = True
 intents.presences = True
 client = Client(command_prefix="!", intents=intents, activity = discord.Game(name="TETR.IO"), status=discord.Status.idle)
 
+def generateresultsembed(matchid):
+    round1, round2, round3, round4, round5 = [MatchInfo.cell(matchid,i).value for i in range(13,18)]
+    results = ""
+    team1score = 0
+    team2score = 0
+    team1rounds = 0
+    team2rounds = 0
+    team1lineup = [MatchInfo.cell(matchid,i).value for i in range(2,7)]
+    team2lineup = [MatchInfo.cell(matchid,i).value for i in range(7,12)]
+    winner = 0
+    for round in [round1, round2, round3, round4, round5]:
+        player1 = int(round[0])-1
+        player2 = int(round[5])-1
+        if player1 == -1:
+            results += "**N/A** "
+        else:
+            results += f'**[{team1lineup[player1]}](https://ch.tetr.io/u/{team1lineup[player1]})** '
+        results += f'{round[1]} - {round[2]} '
+        if player2 == -1:
+            results += "**N/A**\n"
+        else:
+            results += f'**[{team2lineup[player2]}](https://ch.tetr.io/u/{team2lineup[player2]})**\n'
+        team1score += int(round[1])
+        team2score += int(round[2])
+        if int(round[1]) > int(round[2]):
+            team1score += 1
+            team1rounds += 1
+        elif int(round[1]) < int(round[2]):
+            team2score += 1
+            team2rounds += 1
+        if team1score > team2score:
+            winner = 1
+        elif team1score < team2score:
+            winner = 2
+        else:
+            if team1rounds > team2rounds:
+                winner = 1
+            elif team1rounds < team2rounds:
+                winner = 1
+    embed = discord.Embed(title=f'Match {matchid} Results', color=discord.Color.purple())
+    embed.add_field(
+        name=f'{MatchInfo.cell(matchid,1).value} {"(W)" if winner == 1 else "(L)"} {team1score} - {team2score} {"(W)" if winner == 2 else "(L)"} {MatchInfo.cell(matchid,12).value}',
+        value=results,
+        inline=True
+    )
+    return embed
+
+def checkRoles(user: object, matchid: int):
+    matchRoles = MatchInfo.get("S" + str(matchid) + ":T" + str(matchid))
+    for role in user.roles:
+        if role.id == int(matchRoles[0][0]):
+            print("Authorized.")
+            return 1
+        elif role.id == int(matchRoles[0][1]):
+            print("Authorized.")
+            return 2
+    return 0
+
 GUILD_IDS = [discord.Object(id=761274425475072010), discord.Object(id=1163677315553824768),discord.Object(id=1375638530126119062)]
     
 for GUILD_ID in GUILD_IDS:
@@ -516,17 +574,17 @@ for GUILD_ID in GUILD_IDS:
         ]
     
     #Submits a match score based on matchID and round. Need valid parameters and roles to set match information
-    @client.tree.command(name="submitround", description="Submit round results)", guild = GUILD_ID)
+    @client.tree.command(name="submitround", description="Submit round results.)", guild = GUILD_ID)
     @app_commands.describe(matchid="Match ID", round="Round Number", score1="Team 1 Score", score2="Team 2 Score")
     async def submitmatch(interaction:discord.Interaction, matchid: int, round: int, score1: int, score2: int):
         if matchid > len(MatchInfo.get("A:A")):
-            await interaction.response.send_message("Invalid Match ID", ephemeral=True)
+            await interaction.response.send_message("Invalid Match ID.", ephemeral=True)
         elif round not in range(1, 6):
-            await interaction.response.send_message("Invalid round number", ephemeral=True)
+            await interaction.response.send_message("Invalid round number.", ephemeral=True)
         elif score1 < 0 or score1 > 7 or score2 < 0 or score2 > 7:
-            await interaction.response.send_message("Invalid score number", ephemeral=True)
+            await interaction.response.send_message("Invalid score.", ephemeral=True)
         elif MatchInfo.cell(matchid, 12+round).value is None:
-            await interaction.response.send_message("Round does not exist", ephemeral=True)
+            await interaction.response.send_message("Match does not exist.", ephemeral=True)
         else:
             user = interaction.user
             teamAssign = checkRoles(user, matchid)
@@ -540,35 +598,51 @@ for GUILD_ID in GUILD_IDS:
                 tempScore1 = gameValue[1:3]
                 tempScore2 = gameValue[3:5]
                 if(tempScore1 != tempScore2):
-                    print("Score invalid")
+                    print("Score invalid.")
                     validRound = False
                 else:
-                    print("Score valid")
+                    print("Score valid.")
                     validRound = True
-                scoreString = "Score of " + str(score1) + "-" + str(score2) + " successfully submitted. "
+                scoreString = "Score of " + str(score1) + " - " + str(score2) + " successfully submitted. "
                 if validRound:
                     gameValue = gameValue[:6] + "1"
                     await interaction.response.send_message(scoreString + "Scores between both teams are matching! Round validated!", ephemeral=True)
                 else:
                     if gameValue[6] == "1":
-                        await interaction.response.send_message(scoreString + "You are changing a round that was considered valid. Please ensure you follow up with the opposing team and revalidate scores", ephemeral=False)
+                        await interaction.response.send_message(scoreString + "You are changing a round that was considered valid. Please ensure you follow up with the opposing team and revalidate scores.", ephemeral=False)
                         gameValue = gameValue[:6] + "0"
                     else:
-                        await interaction.response.send_message(scoreString + "Currently, scores for this round are mismatching between teams. Please follow up with opposing team to confirm scores", ephemeral=False)
+                        await interaction.response.send_message(scoreString + "Currently, scores for this round are not matching between teams. Please follow up with opposing team to confirm scores.", ephemeral=False)
                 MatchInfo.update_cell(matchid, 12+round, gameValue)
             else:
-                await interaction.response.send_message("You are not authorized to submit a score to this game", ephemeral=True)
+                await interaction.response.send_message("You are not authorized to submit a score to this game.", ephemeral=True)
 
-    def checkRoles(user: object, matchid: int):
-        matchRoles = MatchInfo.get("S" + str(matchid) + ":T" + str(matchid))
-        for role in user.roles:
-            if role.id == int(matchRoles[0][0]):
-                print("Authorized")
-                return 1
-            elif role.id == int(matchRoles[0][1]):
-                print("Authorized")
-                return 2
-        return 0
+    @client.tree.command(name="submitmatch", description="Submit the results of a given match.", guild=GUILD_ID)
+    @app_commands.describe(matchid="Match ID")
+    async def submitround(interaction:discord.Interaction, matchid: int):
+        if matchid > len(MatchInfo.get("A:A")):
+            await interaction.response.send_message("Invalid Match ID", ephemeral=True)
+        else:
+            user = interaction.user
+            teamAssign = 0
+            matchRoles = MatchInfo.get("S" + str(matchid) + ":T" + str(matchid))
+            for role in user.roles:
+                if role.id == int(matchRoles[0][0]):
+                    teamAssign = 1
+                    break
+                elif role.id == int(matchRoles[0][1]):
+                    teamAssign = 2
+                    break
+            if teamAssign != 0:
+                await interaction.response.defer()
+                gameValues = [MatchInfo.cell(matchid, 13+round).value for round in range(5)]
+                if all(value is not None and str(value)[-1] == '1' for value in gameValues):
+                    await interaction.followup.send("Scores between both teams are matching. Match validated.", ephemeral=True, embed=generateresultsembed(matchid))
+                    MatchInfo.update_cell(matchid, 18, "TRUE")
+                else:
+                    await interaction.response.send_message("Currently, scores between teams are not matching. Please follow up with opposing team to confirm scores.", ephemeral=False)
+            else:
+                await interaction.response.send_message("You are not authorized to submit this match.", ephemeral=True)
 
 
 client.run(token)
