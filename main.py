@@ -106,53 +106,6 @@ def checkRoles(user: object, matchid: int):
             return 2
     return 0
 
-def generateresultsembed(matchid):
-    round1, round2, round3, round4, round5 = [MatchInfo.cell(matchid,i).value for i in range(13,18)]
-    results = ""
-    team1score = 0
-    team2score = 0
-    team1rounds = 0
-    team2rounds = 0
-    team1lineup = [MatchInfo.cell(matchid,i).value for i in range(2,7)]
-    team2lineup = [MatchInfo.cell(matchid,i).value for i in range(7,12)]
-    winner = 0
-    for round in [round1, round2, round3, round4, round5]:
-        player1 = int(round[0])-1
-        player2 = int(round[5])-1
-        if player1 == -1:
-            results += "**N/A** "
-        else:
-            results += f'**[{team1lineup[player1]}](https://ch.tetr.io/u/{team1lineup[player1]})** '
-        results += f'{round[1]} - {round[2]} '
-        if player2 == -1:
-            results += "**N/A**\n"
-        else:
-            results += f'**[{team2lineup[player2]}](https://ch.tetr.io/u/{team2lineup[player2]})**\n'
-        team1score += int(round[1])
-        team2score += int(round[2])
-        if int(round[1]) > int(round[2]):
-            team1score += 1
-            team1rounds += 1
-        elif int(round[1]) < int(round[2]):
-            team2score += 1
-            team2rounds += 1
-        if team1score > team2score:
-            winner = 1
-        elif team1score < team2score:
-            winner = 2
-        else:
-            if team1rounds > team2rounds:
-                winner = 1
-            elif team1rounds < team2rounds:
-                winner = 1
-    embed = discord.Embed(title=f'Match {matchid} Results', color=discord.Color.purple())
-    embed.add_field(
-        name=f'{MatchInfo.cell(matchid,1).value} {"(W)" if winner == 1 else "(L)"} {team1score} - {team2score} {"(W)" if winner == 2 else "(L)"} {MatchInfo.cell(matchid,12).value}',
-        value=results,
-        inline=True
-    )
-    return embed
-
 GUILD_IDS = [discord.Object(id=761274425475072010), discord.Object(id=1163677315553824768),discord.Object(id=1375638530126119062)]
     
 for GUILD_ID in GUILD_IDS:
