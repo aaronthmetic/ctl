@@ -526,7 +526,7 @@ for GUILD_ID in GUILD_IDS:
         elif score1 < 0 or score1 > 7 or score2 < 0 or score2 > 7:
             await interaction.response.send_message("Invalid score number", ephemeral=True)
         elif MatchInfo.cell(matchid, 12+round).value is None:
-            await interaction.response.send_message("Match does not exist", ephemeral=True)
+            await interaction.response.send_message("Round does not exist", ephemeral=True)
         else:
             user = interaction.user
             teamAssign = checkRoles(user, matchid)
