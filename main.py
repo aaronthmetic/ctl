@@ -359,7 +359,7 @@ for GUILD_ID in GUILD_IDS:
                             MatchInfo.update_cell(
                                 matchid,
                                 13,
-                                (f'{index+1}00000' if MatchInfo.cell(matchid,13).value is None
+                                (f'{index+1}000000' if MatchInfo.cell(matchid,13).value is None
                                  else str(index+1)+MatchInfo.cell(matchid,13).value[1:])
                             )
                         else:
@@ -370,8 +370,8 @@ for GUILD_ID in GUILD_IDS:
                             MatchInfo.update_cell(
                                 matchid,
                                 13,
-                                (f'00000{index+1}' if MatchInfo.cell(matchid,13).value is None
-                                 else MatchInfo.cell(matchid,13).value[:5]+str(index+1))
+                                (f'00000{index+1}0' if MatchInfo.cell(matchid,13).value is None
+                                 else MatchInfo.cell(matchid,13).value[:5]+str(index+1)+'0')
                             )
                         for child in self.view.children:
                             child.disabled = True
@@ -472,7 +472,7 @@ for GUILD_ID in GUILD_IDS:
         else:
             if (team1 == MatchInfo.cell(matchid,1).value and team2 == MatchInfo.cell(matchid,12).value) or (team1 == MatchInfo.cell(matchid,12).value and team2 == MatchInfo.cell(matchid,1).value):
                 for i in range(13,18):
-                    MatchInfo.update_cell(matchid, i, "000000")
+                    MatchInfo.update_cell(matchid, i, "0000001")
                 await interaction.response.send_message(f'Double forfeited Match {matchid}.', ephemeral=True)
             elif team1 == MatchInfo.cell(matchid,1).value:
                 if MatchInfo.cell(matchid,7).value is None:
@@ -480,7 +480,7 @@ for GUILD_ID in GUILD_IDS:
                     return
                 else:
                     for i in range(13,18):
-                        MatchInfo.update_cell(matchid, i, f'00077{i-12}')
+                        MatchInfo.update_cell(matchid, i, f'00077{i-12}1')
                     await interaction.response.send_message(f'{team1} forfeited Match {matchid}.', ephemeral=True)
             elif team1 == MatchInfo.cell(matchid,12).value:
                 if MatchInfo.cell(matchid,2).value is None:
@@ -488,7 +488,7 @@ for GUILD_ID in GUILD_IDS:
                     return
                 else:
                     for i in range(13,18):
-                        MatchInfo.update_cell(matchid, i, f'{i-12}77000')
+                        MatchInfo.update_cell(matchid, i, f'{i-12}770001')
                     await interaction.response.send_message(f'{team1} forfeited Match {matchid}.', ephemeral=True)
             else:
                 await interaction.response.send_message("Invalid team.", ephemeral=True)
