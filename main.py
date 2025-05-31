@@ -525,7 +525,7 @@ for GUILD_ID in GUILD_IDS:
             await interaction.response.send_message("Invalid round number", ephemeral=True)
         elif score1 < 0 or score1 > 7 or score2 < 0 or score2 > 7:
             await interaction.response.send_message("Invalid score number", ephemeral=True)
-        elif MatchInfo.cell(matchid, 13).value is None:
+        elif MatchInfo.cell(matchid, 12+round).value is None:
             await interaction.response.send_message("Match does not exist", ephemeral=True)
         else:
             user = interaction.user
