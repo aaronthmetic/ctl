@@ -584,7 +584,7 @@ for GUILD_ID in GUILD_IDS:
         elif score1 < 0 or score1 > 7 or score2 < 0 or score2 > 7:
             await interaction.response.send_message("Invalid score.", ephemeral=True)
         elif MatchInfo.cell(matchid, 12+round).value is None:
-            await interaction.response.send_message("Match does not exist.", ephemeral=True)
+            await interaction.response.send_message("Round does not exist.", ephemeral=True)
         else:
             user = interaction.user
             teamAssign = checkRoles(user, matchid)
@@ -624,15 +624,7 @@ for GUILD_ID in GUILD_IDS:
             await interaction.response.send_message("Invalid Match ID", ephemeral=True)
         else:
             user = interaction.user
-            teamAssign = 0
-            matchRoles = MatchInfo.get("S" + str(matchid) + ":T" + str(matchid))
-            for role in user.roles:
-                if role.id == int(matchRoles[0][0]):
-                    teamAssign = 1
-                    break
-                elif role.id == int(matchRoles[0][1]):
-                    teamAssign = 2
-                    break
+            teamAssign = checkRoles(user, matchid)
             if teamAssign != 0:
                 await interaction.response.defer()
                 gameValues = [MatchInfo.cell(matchid, 13+round).value for round in range(5)]
@@ -640,9 +632,8 @@ for GUILD_ID in GUILD_IDS:
                     await interaction.followup.send("Scores between both teams are matching. Match validated.", ephemeral=True, embed=generateresultsembed(matchid))
                     MatchInfo.update_cell(matchid, 18, "TRUE")
                 else:
-                    await interaction.response.send_message("Currently, scores between teams are not matching. Please follow up with opposing team to confirm scores.", ephemeral=False)
+                    await interaction.followup.send("It appears this match cannot be finalized. Please follow up with opposing team to confirm scores.", ephemeral=False)
             else:
                 await interaction.response.send_message("You are not authorized to submit this match.", ephemeral=True)
-
 
 client.run(token)
