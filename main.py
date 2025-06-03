@@ -1,3 +1,4 @@
+# imports
 import discord
 from discord.ext import commands
 from discord import app_commands
@@ -10,15 +11,18 @@ import os
 import gspread
 from google.oauth2.service_account import Credentials
 
+# credentials for google sheets api
 scopes = [
     "https://www.googleapis.com/auth/spreadsheets"
 ]
 creds = Credentials.from_service_account_file("credentials.json", scopes=scopes)
 sheetsClient = gspread.authorize(creds)
 
+# opening the google sheets document
 sheet_id = "1vr2ltnMgevSpoeI3HAT5emdaU07G7AgjjItbz7hDFdg"
 workbook = sheetsClient.open_by_key(sheet_id)
 
+# google sheets worksheets
 TestSheet = workbook.worksheet("Sheet1")
 Seedings = workbook.worksheet("Seedings")
 MatchupsU = workbook.worksheet("MatchupsU")
@@ -27,9 +31,11 @@ MatchupsL = workbook.worksheet("MatchupsL")
 StandingsL = workbook.worksheet("Standings for 2025L")
 MatchInfo = workbook.worksheet("MatchInfo")
 
+# loading discord bot token from .env
 load_dotenv()
 token = os.getenv('DISCORD_TOKEN')
 
+# turning on the bot
 class Client(commands.Bot):
     async def on_ready(self):
         print(f'Logged on as {self.user}!')
@@ -42,12 +48,39 @@ class Client(commands.Bot):
         except Exception as e:
             print(f'Error syncing commands: {e}')
 
+# discord intents (permissions)
 intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
 intents.presences = True
 client = Client(command_prefix="!", intents=intents, activity = discord.Game(name="TETR.IO"), status=discord.Status.idle)
 
+# helper function for team autocomplete
+def team_autocomplete(current: str):
+    teams = Seedings.col_values(1)[1:]
+    filtered = [team for team in teams if current.lower() in team.lower()]
+    limited = filtered[:25]
+    return [
+        app_commands.Choice(name=team, value=team)
+        for team in limited
+    ]
+
+def player_autocomplete(current:str):
+    player_list = Seedings.batch_get(["D2:H","N2:R"])
+    filtered = list(dict.fromkeys(
+        player
+        for sublist1 in player_list
+        for sublist2 in sublist1
+        for player in sublist2
+        if current.lower() in player.lower()
+    ))
+    limited = filtered[:25]
+    return [
+        app_commands.Choice(name=player, value=player)
+        for player in limited
+    ]
+
+# helper function for generating results from a round
 def generateresultsembed(matchid):
     round1, round2, round3, round4, round5 = [MatchInfo.cell(matchid,i).value for i in range(13,18)]
     results = ""
@@ -95,6 +128,7 @@ def generateresultsembed(matchid):
     )
     return embed
 
+# helper function for checking and authorizing team roles for a match
 def checkRoles(user: object, matchid: int):
     matchRoles = MatchInfo.get("S" + str(matchid) + ":T" + str(matchid))
     for role in user.roles:
@@ -106,10 +140,12 @@ def checkRoles(user: object, matchid: int):
             return 2
     return 0
 
+# guild ids
 GUILD_IDS = [discord.Object(id=761274425475072010), discord.Object(id=1163677315553824768),discord.Object(id=1375638530126119062)]
     
 for GUILD_ID in GUILD_IDS:
     
+    # help command: display list of commands
     @client.tree.command(name="help", description="Display a list of all commands.", guild=GUILD_ID)
     async def help(interaction: discord.Interaction):
         embed = discord.Embed(title="Help", color=discord.Color.purple())
@@ -124,6 +160,7 @@ for GUILD_ID in GUILD_IDS:
         embed.add_field(name="/forfeitmatch `[matchid]` `[team1]` `[team2]`", value="**(Organizer Use)** Forfeit a match on behalf of a given team. Filling `[team2]` yields a double forfeit.", inline=False)
         await interaction.response.send_message(embed=embed)
 
+    # getstats command: get tetrio stats of a user using tetrio api
     @client.tree.command(name="getstats", description="Get the stats of any TETR.IO user!", guild=GUILD_ID)
     @app_commands.describe(
         username="Username of the TETR.IO user to search."
@@ -173,7 +210,8 @@ for GUILD_ID in GUILD_IDS:
         else:
             await interaction.response.send_message(f"Error {league.status_code}: Access denied.")
 
-    class View(discord.ui.View): # NOTE TO SELF PLEASE FIX THIS
+    # pagination for standings, still wip
+    class View(discord.ui.View):
         @discord.ui.button(style=discord.ButtonStyle.gray, emoji="⬅️")
         async def backward(self, interaction=discord.Interaction, button=discord.ui.Button):
             await interaction.response.send_message("this should go back a page", ephemeral=True)
@@ -181,6 +219,7 @@ for GUILD_ID in GUILD_IDS:
         async def forward(self, interaction=discord.Interaction, button=discord.ui.Button):
             await interaction.response.send_message("this should go forward a page", ephemeral=True)
         
+    # standings command: show the standings for a certain league / team
     @client.tree.command(name="standings", description="Display standings for either the upper league or lower league.", guild=GUILD_ID)
     @app_commands.describe(
         league="(Optional) Choose a league to display standings for. Defaults to upper if no team is indicated.",
@@ -242,14 +281,9 @@ for GUILD_ID in GUILD_IDS:
 
     @standings.autocomplete('team')
     async def standings_autocomplete(interaction: discord.Interaction, current: str):
-        teams = Seedings.col_values(1)[1:]
-        filtered = [team for team in teams if current.lower() in team.lower()]
-        limited = filtered[:25]
-        return [
-            app_commands.Choice(name=team, value=team)
-            for team in limited
-        ]
+        return team_autocomplete(current)
 
+    # roster command: show a team's roster
     @client.tree.command(name="roster", description="Display the full roster of a team.", guild=GUILD_ID)
     @app_commands.describe(team="Select a team.")
     async def roster(interaction: discord.Interaction, team: str):
@@ -280,13 +314,7 @@ for GUILD_ID in GUILD_IDS:
 
     @roster.autocomplete('team')
     async def roster_autocomplete(interaction: discord.Interaction, current: str):
-        teams = Seedings.col_values(1)[1:]
-        filtered = [team for team in teams if current.lower() in team.lower()]
-        limited = filtered[:25]
-        return [
-            app_commands.Choice(name=team, value=team)
-            for team in limited
-        ]
+        return team_autocomplete(current)
     
     # add validation of team status
     @client.tree.command(name="setlineup", description="Set your team's lineup for a match", guild=GUILD_ID) # modify this later for team from roles
@@ -307,12 +335,12 @@ for GUILD_ID in GUILD_IDS:
             await interaction.response.send_message("Invalid match ID.", ephemeral=True)
         elif team not in [MatchInfo.cell(matchid,1).value,MatchInfo.cell(matchid,12).value]:
             await interaction.response.send_message("Invalid team.", ephemeral=True)
-        elif MatchInfo.cell(matchid,13).value is not None and MatchInfo.cell(matchid,13).value[0] != '0' and MatchInfo.cell(matchid,13).value[3] != '0':
+        elif MatchInfo.cell(matchid,13).value is not None and MatchInfo.cell(matchid,13).value[0] != '0' and MatchInfo.cell(matchid,13).value[5] != '0':
             await interaction.response.send_message("Match has already started. Lineups cannot be modified.", ephemeral=True)
         else:
             if team == MatchInfo.cell(matchid,12).value:
                 position = 7
-                if MatchInfo.cell(matchid,13).value is not None and MatchInfo.cell(matchid,13).value[3] != '0':
+                if MatchInfo.cell(matchid,13).value is not None and MatchInfo.cell(matchid,13).value[5] != '0':
                     message = "⚠️ **WARNING:** You have already made a blindpick. This lineup change may change your blindpick."
             else:
                 if MatchInfo.cell(matchid,13).value is not None and MatchInfo.cell(matchid,13).value[0] != '0':
@@ -337,30 +365,13 @@ for GUILD_ID in GUILD_IDS:
     
     @setlineup.autocomplete('team')
     async def roster_autocomplete(interaction: discord.Interaction, current: str):
-        teams = Seedings.col_values(1)[1:]
-        filtered = [team for team in teams if current.lower() in team.lower()]
-        limited = filtered[:25]
-        return [
-            app_commands.Choice(name=team, value=team)
-            for team in limited
-        ]
+        return team_autocomplete(current)
     for player in ['p1', 'p2', 'p3', 'p4', 'p5']:
         @setlineup.autocomplete(player)
         async def roster_autocomplete(interaction: discord.Interaction, current: str):
-            player_list = Seedings.batch_get(["D2:H","N2:R"])
-            filtered = list(dict.fromkeys(
-                player
-                for sublist1 in player_list
-                for sublist2 in sublist1
-                for player in sublist2
-                if current.lower() in player.lower()
-            ))
-            limited = filtered[:25]
-            return [
-                app_commands.Choice(name=player, value=player)
-                for player in limited
-            ]
+            return player_autocomplete(current)
     
+    # lineups command: show lineups for a match
     @client.tree.command(name="lineups", description="See lineups for a match.", guild=GUILD_ID)
     @app_commands.describe(matchid="Match ID")
     async def lineups(interaction:discord.Interaction, matchid: int):
@@ -382,6 +393,7 @@ for GUILD_ID in GUILD_IDS:
             )
             await interaction.response.send_message(embed=embed)
             
+    # blindpick command: blindpicking
     @client.tree.command(name="blindpick", description="Blindpick for a scheduled match.", guild=GUILD_ID) # modify this later for team from roles
     @app_commands.describe(matchid="Match ID", team="Your team")
     async def blindpick(interaction:discord.Interaction, matchid: int, team: str):
@@ -457,14 +469,9 @@ for GUILD_ID in GUILD_IDS:
     
     @blindpick.autocomplete('team')
     async def roster_autocomplete(interaction: discord.Interaction, current: str):
-        teams = Seedings.col_values(1)[1:]
-        filtered = [team for team in teams if current.lower() in team.lower()]
-        limited = filtered[:25]
-        return [
-            app_commands.Choice(name=team, value=team)
-            for team in limited
-        ]
+        return team_autocomplete(current)
     
+    # matchresults command: shows match results
     @client.tree.command(name="matchresults", description="Shows match results for a given match.", guild=GUILD_ID)
     async def matchresults(interaction:discord.Interaction, matchid: int):
         if matchid > len(MatchInfo.get("A:A")):
@@ -520,6 +527,7 @@ for GUILD_ID in GUILD_IDS:
             )
             await interaction.followup.send(embed=embed)
 
+    # forfeitmatch command: organizers can forfeit a match on behalf of a team
     @client.tree.command(name="forfeitmatch", description="(Organizer Use) Forfeit a match for a team.", guild=GUILD_ID)
     @app_commands.describe(matchid="Match ID", team1="Team to lose by forfeit", team2="(Optional) Use in case of double forfeit.")
     async def forfeitmatch(interaction:discord.Interaction, matchid: int, team1: str, team2: str = None):
@@ -555,25 +563,13 @@ for GUILD_ID in GUILD_IDS:
     
     @forfeitmatch.autocomplete('team1')
     async def roster_autocomplete(interaction: discord.Interaction, current: str):
-        teams = Seedings.col_values(1)[1:]
-        filtered = [team for team in teams if current.lower() in team.lower()]
-        limited = filtered[:25]
-        return [
-            app_commands.Choice(name=team, value=team)
-            for team in limited
-        ]
+        return team_autocomplete(current)
     
     @forfeitmatch.autocomplete('team2')
     async def roster_autocomplete(interaction: discord.Interaction, current: str):
-        teams = Seedings.col_values(1)[1:]
-        filtered = [team for team in teams if current.lower() in team.lower()]
-        limited = filtered[:25]
-        return [
-            app_commands.Choice(name=team, value=team)
-            for team in limited
-        ]
+        return team_autocomplete(current)
     
-    #Submits a match score based on matchID and round. Need valid parameters and roles to set match information
+    # Submits a match score based on matchID and round. Need valid parameters and roles to set match information
     @client.tree.command(name="submitround", description="Submit round results.)", guild = GUILD_ID)
     @app_commands.describe(matchid="Match ID", round="Round Number", score1="Team 1 Score", score2="Team 2 Score")
     async def submitmatch(interaction:discord.Interaction, matchid: int, round: int, score1: int, score2: int):
@@ -617,6 +613,7 @@ for GUILD_ID in GUILD_IDS:
             else:
                 await interaction.response.send_message("You are not authorized to submit a score to this game.", ephemeral=True)
 
+    # submitmatch command: submit the results of a match
     @client.tree.command(name="submitmatch", description="Submit the results of a given match.", guild=GUILD_ID)
     @app_commands.describe(matchid="Match ID")
     async def submitround(interaction:discord.Interaction, matchid: int):
