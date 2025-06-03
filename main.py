@@ -343,8 +343,7 @@ for GUILD_ID in GUILD_IDS:
     async def roster_autocomplete(interaction: discord.Interaction, current: str):
         return team_autocomplete(current)
     
-    # add validation of team status
-    @client.tree.command(name="setlineup", description="Set your team's lineup for a match", guild=GUILD_ID) # modify this later for team from roles
+    @client.tree.command(name="setlineup", description="Set your team's lineup for a match", guild=GUILD_ID)
     @app_commands.describe(
         matchid="Match ID",
         p1="Player 1 (Optional: N/A if left unfilled)",
