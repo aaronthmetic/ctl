@@ -31,6 +31,27 @@ MatchupsL = workbook.worksheet("MatchupsL")
 StandingsL = workbook.worksheet("Standings for 2025L")
 MatchInfo = workbook.worksheet("MatchInfo")
 
+# getting info from each worksheet
+
+# matchinfo sheet
+team1name = 1  # name of team 1
+team2name = 12  # name of team 2
+team1lineup = 2  # first entry of team 1 lineup
+team2lineup = 7  # first entry of team 2 lineup
+roundinfo = 13  # round 1 scoring entry
+matchsubmissionstatus = 18  # whether the match is finalized or not
+team1role = 19  # role id of team 1
+team2role = 20  # role id of team 2
+
+# round information data storage
+team1player = 0
+team1submission_team1score = 1
+team1submission_team2score = 2
+team2submission_team1score = 3
+team2submission_team2score = 4
+team2player = 5
+scorevalidation = 6
+
 # loading discord bot token from .env
 load_dotenv()
 token = os.getenv('DISCORD_TOKEN')
@@ -82,35 +103,41 @@ def player_autocomplete(current:str):
 
 # helper function for generating results from a round
 def generateresultsembed(matchid):
-    round1, round2, round3, round4, round5 = [MatchInfo.cell(matchid,i).value for i in range(13,18)]
+    round1, round2, round3, round4, round5 = [MatchInfo.cell(matchid,i).value for i in range(roundinfo,roundinfo+5)]
     results = ""
     team1score = 0
     team2score = 0
     team1rounds = 0
     team2rounds = 0
-    team1lineup = [MatchInfo.cell(matchid,i).value for i in range(2,7)]
-    team2lineup = [MatchInfo.cell(matchid,i).value for i in range(7,12)]
+    team1lineup = [MatchInfo.cell(matchid,i).value for i in range(team1lineup,team1lineup+5)]
+    team2lineup = [MatchInfo.cell(matchid,i).value for i in range(team2lineup,team2lineup+5)]
     winner = 0
-    for round in [round1, round2, round3, round4, round5]:
-        player1 = int(round[0])-1
-        player2 = int(round[5])-1
+    for round in [round1, round2, round3, round4, round5]:  # for each round
+        player1 = int(round[team1player])-1
+        player2 = int(round[team2player])-1
+        # add player 1
         if player1 == -1:
             results += "**N/A** "
         else:
             results += f'**[{team1lineup[player1]}](https://ch.tetr.io/u/{team1lineup[player1]})** '
-        results += f'{round[1]} - {round[2]} '
+        # add score
+        results += f'{round[team1submission_team1score]} - {round[team2submission_team2score]} '
+        # add player 2
         if player2 == -1:
             results += "**N/A**\n"
         else:
             results += f'**[{team2lineup[player2]}](https://ch.tetr.io/u/{team2lineup[player2]})**\n'
-        team1score += int(round[1])
-        team2score += int(round[2])
-        if int(round[1]) > int(round[2]):
+        # adjust total scores
+        team1score += int(round[team1submission_team1score])
+        team2score += int(round[team1submission_team2score])
+        # count rounds for tiebreaker
+        if int(round[team1submission_team1score]) > int(round[team1submission_team2score]):
             team1score += 1
             team1rounds += 1
-        elif int(round[1]) < int(round[2]):
+        elif int(round[team1submission_team1score]) < int(round[team1submission_team2score]):
             team2score += 1
             team2rounds += 1
+        # determine winner
         if team1score > team2score:
             winner = 1
         elif team1score < team2score:
