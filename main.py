@@ -36,8 +36,8 @@ MatchInfo = workbook.worksheet("MatchInfo")
 # matchinfo sheet
 team1name = 1  # name of team 1
 team2name = 12  # name of team 2
-team1lineup = 2  # first entry of team 1 lineup
-team2lineup = 7  # first entry of team 2 lineup
+team1lineupentry = 2  # first entry of team 1 lineup
+team2lineupentry = 7  # first entry of team 2 lineup
 roundinfo = 13  # round 1 scoring entry
 matchsubmissionstatus = 18  # whether the match is finalized or not
 team1role = 19  # role id of team 1
@@ -86,6 +86,7 @@ def team_autocomplete(current: str):
         for team in limited
     ]
 
+# helper function for player autocomplete
 def player_autocomplete(current:str):
     player_list = Seedings.batch_get(["D2:H","N2:R"])
     filtered = list(dict.fromkeys(
@@ -109,8 +110,8 @@ def generateresultsembed(matchid):
     team2score = 0
     team1rounds = 0
     team2rounds = 0
-    team1lineup = [MatchInfo.cell(matchid,i).value for i in range(team1lineup,team1lineup+5)]
-    team2lineup = [MatchInfo.cell(matchid,i).value for i in range(team2lineup,team2lineup+5)]
+    team1lineup = [MatchInfo.cell(matchid,i).value for i in range(team1lineupentry,team1lineupentry+5)]
+    team2lineup = [MatchInfo.cell(matchid,i).value for i in range(team2lineupentry,team2lineupentry+5)]
     winner = 0
     for round in [round1, round2, round3, round4, round5]:  # for each round
         player1 = int(round[team1player])-1
@@ -157,12 +158,11 @@ def generateresultsembed(matchid):
 
 # helper function for checking and authorizing team roles for a match
 def checkRoles(user: object, matchid: int):
-    matchRoles = MatchInfo.get("S" + str(matchid) + ":T" + str(matchid))
     for role in user.roles:
-        if role.id == int(matchRoles[0][0]):
+        if role.id == int(MatchInfo.cell(matchid,team1role).value):
             print("Authorized.")
             return 1
-        elif role.id == int(matchRoles[0][1]):
+        elif role.id == int(MatchInfo.cell(matchid,team2role).value):
             print("Authorized.")
             return 2
     return 0
@@ -347,52 +347,54 @@ for GUILD_ID in GUILD_IDS:
     @client.tree.command(name="setlineup", description="Set your team's lineup for a match", guild=GUILD_ID) # modify this later for team from roles
     @app_commands.describe(
         matchid="Match ID",
-        team="Your team",
         p1="Player 1 (Optional: N/A if left unfilled)",
         p2="Player 2 (Optional: N/A if left unfilled)",
         p3="Player 3 (Optional: N/A if left unfilled)",
         p4="Player 4 (Optional: N/A if left unfilled)",
         p5="Player 5 (Optional: N/A if left unfilled)"
     )
-    async def setlineup(interaction: discord.Interaction, matchid: int, team: str, p1: str = "N/A", p2: str = "N/A", p3: str = "N/A", p4: str = "N/A", p5: str = "N/A"):
+    async def setlineup(interaction: discord.Interaction, matchid: int, p1: str = "N/A", p2: str = "N/A", p3: str = "N/A", p4: str = "N/A", p5: str = "N/A"):
         rosters = Seedings.get("A2:R45")
-        position = 2
+        position = team2lineupentry
+        team = ""
         message = ""
         if matchid > len(MatchInfo.get("A:A")):
             await interaction.response.send_message("Invalid match ID.", ephemeral=True)
-        elif team not in [MatchInfo.cell(matchid,1).value,MatchInfo.cell(matchid,12).value]:
-            await interaction.response.send_message("Invalid team.", ephemeral=True)
         elif MatchInfo.cell(matchid,13).value is not None and MatchInfo.cell(matchid,13).value[0] != '0' and MatchInfo.cell(matchid,13).value[5] != '0':
             await interaction.response.send_message("Match has already started. Lineups cannot be modified.", ephemeral=True)
         else:
-            if team == MatchInfo.cell(matchid,12).value:
-                position = 7
-                if MatchInfo.cell(matchid,13).value is not None and MatchInfo.cell(matchid,13).value[5] != '0':
-                    message = "⚠️ **WARNING:** You have already made a blindpick. This lineup change may change your blindpick."
+            user = interaction.user
+            teamAssign = checkRoles(user, matchid)
+            if teamAssign != 0:
+                if teamAssign == 2:
+                    position = team2lineupentry
+                    team = MatchInfo.cell(matchid, team2name).value
+                    if MatchInfo.cell(matchid,roundinfo).value is not None and MatchInfo.cell(matchid,roundinfo).value[team2player] != '0':
+                        message = "⚠️ **WARNING:** You have already made a blindpick. This lineup change may change your blindpick."
+                else:
+                    team = MatchInfo.cell(matchid, team1name).value
+                    if MatchInfo.cell(matchid,roundinfo).value is not None and MatchInfo.cell(matchid,roundinfo).value[team1player] != '0':
+                        message = "⚠️ **WARNING:** You have already made a blindpick. This lineup change may change your blindpick."
+                def find_university_roster(university_name):
+                        for info in rosters:
+                            if info[0] == university_name:
+                                return info
+                if not all (p in find_university_roster(team)[3:8] + find_university_roster(team)[13:18] + ["N/A"] for p in [p1, p2, p3, p4, p5]):
+                    await interaction.response.send_message("Invalid player.", ephemeral=True)
+                else:
+                    embed = discord.Embed(title=f'Match {matchid}: {team}', color=discord.Color.purple())
+                    embed.add_field(
+                        name="Lineup",
+                        value="\n".join(f'**[{player}](https://ch.tetr.io/u/{player})**' if player != "N/A" else f'**{player}**'
+                            for player in [p1,p2,p3,p4,p5]),
+                        inline=True
+                    )
+                    await interaction.response.send_message(message, embed=embed, ephemeral=True)
+                    for i, player in enumerate([p1, p2, p3, p4, p5]):
+                        MatchInfo.update_cell(matchid, position + i, player)
             else:
-                if MatchInfo.cell(matchid,13).value is not None and MatchInfo.cell(matchid,13).value[0] != '0':
-                    message = "⚠️ **WARNING:** You have already made a blindpick. This lineup change may change your blindpick."
-            def find_university_roster(university_name):
-                    for info in rosters:
-                        if info[0] == university_name:
-                            return info
-            if not all (p in find_university_roster(team)[3:8] + find_university_roster(team)[13:18] + ["N/A"] for p in [p1, p2, p3, p4, p5]):
-                await interaction.response.send_message("Invalid player.", ephemeral=True)
-            else:
-                embed = discord.Embed(title=f'Match {matchid}: {team}', color=discord.Color.purple())
-                embed.add_field(
-                    name="Lineup",
-                    value="\n".join(f'**[{player}](https://ch.tetr.io/u/{player})**' if player != "N/A" else f'**{player}**'
-                        for player in [p1,p2,p3,p4,p5]),
-                    inline=True
-                )
-                await interaction.response.send_message(message, embed=embed, ephemeral=True)
-                for i, player in enumerate([p1, p2, p3, p4, p5]):
-                    MatchInfo.update_cell(matchid, position + i, player)
-    
-    @setlineup.autocomplete('team')
-    async def roster_autocomplete(interaction: discord.Interaction, current: str):
-        return team_autocomplete(current)
+                await interaction.response.send_message("You are not authorized to set a lineup for this match.", ephemeral=True)
+
     for player in ['p1', 'p2', 'p3', 'p4', 'p5']:
         @setlineup.autocomplete(player)
         async def roster_autocomplete(interaction: discord.Interaction, current: str):
@@ -507,51 +509,7 @@ for GUILD_ID in GUILD_IDS:
             await interaction.response.send_message("Match not completed.", ephemeral=True)
         else:
             await interaction.response.defer()
-            round1, round2, round3, round4, round5 = [MatchInfo.cell(matchid,i).value for i in range(13,18)]
-            results = ""
-            team1score = 0
-            team2score = 0
-            team1rounds = 0
-            team2rounds = 0
-            team1lineup = [MatchInfo.cell(matchid,i).value for i in range(2,7)]
-            team2lineup = [MatchInfo.cell(matchid,i).value for i in range(7,12)]
-            winner = 0
-            for round in [round1, round2, round3, round4, round5]:
-                player1 = int(round[0])-1
-                player2 = int(round[5])-1
-                if player1 == -1:
-                    results += "**N/A** "
-                else:
-                    results += f'**[{team1lineup[player1]}](https://ch.tetr.io/u/{team1lineup[player1]})** '
-                results += f'{round[1]} - {round[2]} '
-                if player2 == -1:
-                    results += "**N/A**\n"
-                else:
-                    results += f'**[{team2lineup[player2]}](https://ch.tetr.io/u/{team2lineup[player2]})**\n'
-                team1score += int(round[1])
-                team2score += int(round[2])
-                if int(round[1]) > int(round[2]):
-                    team1score += 1
-                    team1rounds += 1
-                elif int(round[1]) < int(round[2]):
-                    team2score += 1
-                    team2rounds += 1
-                if team1score > team2score:
-                    winner = 1
-                elif team1score < team2score:
-                    winner = 2
-                else:
-                    if team1rounds > team2rounds:
-                        winner = 1
-                    elif team1rounds < team2rounds:
-                        winner = 1
-                
-            embed = discord.Embed(title=f'Match {matchid} Results', color=discord.Color.purple())
-            embed.add_field(
-                name=f'{MatchInfo.cell(matchid,1).value} {"(W)" if winner == 1 else "(L)"} {team1score} - {team2score} {"(W)" if winner == 2 else "(L)"} {MatchInfo.cell(matchid,12).value}',
-                value=results,
-                inline=True
-            )
+            embed = generateresultsembed(matchid)
             await interaction.followup.send(embed=embed)
 
     # forfeitmatch command: organizers can forfeit a match on behalf of a team
