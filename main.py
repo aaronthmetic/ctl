@@ -514,9 +514,10 @@ for GUILD_ID in GUILD_IDS:
     # matchresults command: shows match results
     @client.tree.command(name="matchresults", description="Shows match results for a given match.", guild=GUILD_ID)
     async def matchresults(interaction:discord.Interaction, matchid: int):
-        if matchid > len(MatchInfo.get("A:A")):
+        print(MatchInfo.col_values(team1name))
+        if matchid > len(MatchInfo.col_values(team1name)):
             await interaction.response.send_message("Invalid match ID.", ephemeral=True)
-        elif (MatchInfo.cell(matchid,18).value == "FALSE"):
+        elif (MatchInfo.cell(matchid, matchsubmissionstatus).value == "FALSE"):
             await interaction.response.send_message("Match not completed.", ephemeral=True)
         else:
             await interaction.response.defer()
@@ -569,21 +570,23 @@ for GUILD_ID in GUILD_IDS:
     @client.tree.command(name="submitround", description="Submit round results.)", guild = GUILD_ID)
     @app_commands.describe(matchid="Match ID", round="Round Number", score1="Team 1 Score", score2="Team 2 Score")
     async def submitmatch(interaction:discord.Interaction, matchid: int, round: int, score1: int, score2: int):
-        if matchid > len(MatchInfo.get("A:A")):
+        if matchid > len(MatchInfo.col_values(team1name)):
             await interaction.response.send_message("Invalid Match ID.", ephemeral=True)
         elif round not in range(1, 6):
             await interaction.response.send_message("Invalid round number.", ephemeral=True)
         elif score1 < 0 or score1 > 7 or score2 < 0 or score2 > 7:
             await interaction.response.send_message("Invalid score.", ephemeral=True)
-        elif MatchInfo.cell(matchid, 12+round).value is None:
+        elif MatchInfo.cell(matchid, (roundinfo-1)+round).value is None:
             await interaction.response.send_message("Round does not exist.", ephemeral=True)
         else:
             user = interaction.user
             teamAssign = checkRoles(user, matchid)
             if teamAssign != 0:
-                gameValue = MatchInfo.cell(matchid, 12+round).value
+                gameValue = MatchInfo.cell(matchid, (roundinfo-1)+round).value
+                #Is team1?
                 if teamAssign == 1:
                     gameValue = gameValue[0] + str(score1) + str(score2) + gameValue[3:]
+                #Is team2?
                 else:
                     gameValue = gameValue[:3] + str(score1) + str(score2) + gameValue[5:]
                 validRound = False
@@ -605,7 +608,7 @@ for GUILD_ID in GUILD_IDS:
                         gameValue = gameValue[:6] + "0"
                     else:
                         await interaction.response.send_message(scoreString + "Currently, scores for this round are not matching between teams. Please follow up with opposing team to confirm scores.", ephemeral=False)
-                MatchInfo.update_cell(matchid, 12+round, gameValue)
+                MatchInfo.update_cell(matchid, (roundinfo-1)+round, gameValue)
             else:
                 await interaction.response.send_message("You are not authorized to submit a score to this game.", ephemeral=True)
 
@@ -613,14 +616,14 @@ for GUILD_ID in GUILD_IDS:
     @client.tree.command(name="submitmatch", description="Submit the results of a given match.", guild=GUILD_ID)
     @app_commands.describe(matchid="Match ID")
     async def submitround(interaction:discord.Interaction, matchid: int):
-        if matchid > len(MatchInfo.get("A:A")):
+        if matchid > len(MatchInfo.col_values(team1name)):
             await interaction.response.send_message("Invalid Match ID", ephemeral=True)
         else:
             user = interaction.user
             teamAssign = checkRoles(user, matchid)
             if teamAssign != 0:
                 await interaction.response.defer()
-                gameValues = [MatchInfo.cell(matchid, 13+round).value for round in range(5)]
+                gameValues = [MatchInfo.cell(matchid, roundinfo+round).value for round in range(5)]
                 if all(value is not None and str(value)[-1] == '1' for value in gameValues):
                     await interaction.followup.send("Scores between both teams are matching. Match validated.", ephemeral=True, embed=generateresultsembed(matchid))
                     MatchInfo.update_cell(matchid, 18, "TRUE")
