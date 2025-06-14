@@ -496,7 +496,7 @@ for GUILD_ID in GUILD_IDS:
                                 MatchInfo.update_cell(
                                     matchid,
                                     roundinfo,
-                                    MatchInfo.cell(matchid,roundinfo).value[:team2player]+str(index+1)+'0'
+                                    MatchInfo.cell(matchid,roundinfo).value[:team2player]+str(index+1)+'0'  # fix this later with the default string
                                 )
                             for child in self.view.children:
                                 child.disabled = True
@@ -544,33 +544,45 @@ for GUILD_ID in GUILD_IDS:
         if (checkOrganizer(interaction.user)) != 0:
             if matchid > len(MatchInfo.get("A:A")):
                 await interaction.response.send_message("Invalid match ID.", ephemeral=True)
-            elif (MatchInfo.cell(matchid,18).value == "TRUE"):
+            elif (MatchInfo.cell(matchid,matchsubmissionstatus).value == "TRUE"):
                 await interaction.response.send_message("Match already completed.", ephemeral=True)
             else:
-                if (team1 == MatchInfo.cell(matchid,1).value and team2 == MatchInfo.cell(matchid,12).value) or (team1 == MatchInfo.cell(matchid,12).value and team2 == MatchInfo.cell(matchid,1).value):
-                    for i in range(13,18):
-                        MatchInfo.update_cell(matchid, i, "0000001")
+                if (team1 == MatchInfo.cell(matchid,team1name).value and team2 == MatchInfo.cell(matchid,team2name).value) or (team1 == MatchInfo.cell(matchid,team1name).value and team2 == MatchInfo.cell(matchid,team2name).value):
+                    for i in range(roundinfo,roundinfo+5):
+                        temp = list(default_storage)
+                        temp[scorevalidation] = '1'
+                        MatchInfo.update_cell(matchid, i, ''.join(temp))
                     await interaction.response.send_message(f'Double forfeited Match {matchid}.', ephemeral=True)
-                elif team1 == MatchInfo.cell(matchid,1).value:
-                    if MatchInfo.cell(matchid,7).value is None:
+                elif team1 == MatchInfo.cell(matchid,team1name).value:
+                    if MatchInfo.cell(matchid,team2lineupentry).value is None:
                         await interaction.response.send_message("Roster must be set.", ephemeral=True)
                         return
                     else:
-                        for i in range(13,18):
-                            MatchInfo.update_cell(matchid, i, f'00707{i-12}1')
+                        for i in range(roundinfo,roundinfo+5):
+                            temp = list(default_storage)
+                            temp[team1submission_team2score] = '7'
+                            temp[team2submission_team2score] = '7'
+                            temp[team2player] = str(i-roundinfo+1)
+                            temp[scorevalidation] = '1'
+                            MatchInfo.update_cell(matchid, i, ''.join(temp))
                         await interaction.response.send_message(f'{team1} forfeited Match {matchid}.', ephemeral=True)
-                elif team1 == MatchInfo.cell(matchid,12).value:
+                elif team1 == MatchInfo.cell(matchid,team2name).value:
                     if MatchInfo.cell(matchid,2).value is None:
                         await interaction.response.send_message("Roster must be set.", ephemeral=True)
                         return
                     else:
-                        for i in range(13,18):
-                            MatchInfo.update_cell(matchid, i, f'{i-12}707001')
+                        for i in range(roundinfo,roundinfo+5):
+                            temp = list(default_storage)
+                            temp[team1submission_team1score] = '7'
+                            temp[team2submission_team1score] = '7'
+                            temp[team1player] = str(i-roundinfo+1)
+                            temp[scorevalidation] = '1'
+                            MatchInfo.update_cell(matchid, i, ''.join(temp))
                         await interaction.response.send_message(f'{team1} forfeited Match {matchid}.', ephemeral=True)
                 else:
                     await interaction.response.send_message("Invalid team.", ephemeral=True)
                     return
-                MatchInfo.update_cell(matchid,18,"TRUE")
+                MatchInfo.update_cell(matchid,matchsubmissionstatus,"TRUE")
         else:
             await interaction.response.send_message("You are not an organizer.", ephemeral=True)
     
