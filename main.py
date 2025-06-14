@@ -18,6 +18,18 @@ scopes = [
 creds = Credentials.from_service_account_file("credentials.json", scopes=scopes)
 sheetsClient = gspread.authorize(creds)
 
+''' alternative if we want to host on replit temporarily (encode credentials with base64 in .env)
+creds_base64 = os.getenv("GOOGLE_CREDS_BASE64")
+creds_json = base64.b64decode(creds_base64).decode("utf-8")
+
+with tempfile.NamedTemporaryFile(delete=False, mode='w', suffix=".json") as temp:
+    temp.write(creds_json)
+    temp_path = temp.name
+
+creds = Credentials.from_service_account_file(temp_path, scopes=scopes)
+sheetsClient = gspread.authorize(creds)
+'''
+
 # opening the google sheets document
 sheet_id = "1vr2ltnMgevSpoeI3HAT5emdaU07G7AgjjItbz7hDFdg"
 workbook = sheetsClient.open_by_key(sheet_id)

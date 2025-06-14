@@ -1,2 +1,3 @@
 .env
 credentials.json
+encode_creds.py
