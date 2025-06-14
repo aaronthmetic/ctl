@@ -66,6 +66,7 @@ scorevalidation = 6
 
 # other
 default_storage = '0000000' # 7 digits
+organizer_role = 1378263071440765058 # organizer role id
 
 # loading discord bot token from .env
 load_dotenv()
@@ -180,6 +181,14 @@ def checkRoles(user: object, matchid: int):
         elif role.id == int(MatchInfo.cell(matchid,team2role).value):
             print("Authorized.")
             return 2
+    return 0
+
+# helper function for checking and authorizing organizer role
+def checkOrganizer(user: object):
+    for role in user.roles:
+        if role.id == organizer_role:
+            print("Authorized.")
+            return 1
     return 0
 
 # guild ids
@@ -532,35 +541,38 @@ for GUILD_ID in GUILD_IDS:
     @client.tree.command(name="forfeitmatch", description="(Organizer Use) Forfeit a match for a team.", guild=GUILD_ID)
     @app_commands.describe(matchid="Match ID", team1="Team to lose by forfeit", team2="(Optional) Use in case of double forfeit.")
     async def forfeitmatch(interaction:discord.Interaction, matchid: int, team1: str, team2: str = None):
-        if matchid > len(MatchInfo.get("A:A")):
-            await interaction.response.send_message("Invalid match ID.", ephemeral=True)
-        elif (MatchInfo.cell(matchid,18).value == "TRUE"):
-            await interaction.response.send_message("Match already completed.", ephemeral=True)
-        else:
-            if (team1 == MatchInfo.cell(matchid,1).value and team2 == MatchInfo.cell(matchid,12).value) or (team1 == MatchInfo.cell(matchid,12).value and team2 == MatchInfo.cell(matchid,1).value):
-                for i in range(13,18):
-                    MatchInfo.update_cell(matchid, i, "0000001")
-                await interaction.response.send_message(f'Double forfeited Match {matchid}.', ephemeral=True)
-            elif team1 == MatchInfo.cell(matchid,1).value:
-                if MatchInfo.cell(matchid,7).value is None:
-                    await interaction.response.send_message("Roster must be set.", ephemeral=True)
-                    return
-                else:
-                    for i in range(13,18):
-                        MatchInfo.update_cell(matchid, i, f'00707{i-12}1')
-                    await interaction.response.send_message(f'{team1} forfeited Match {matchid}.', ephemeral=True)
-            elif team1 == MatchInfo.cell(matchid,12).value:
-                if MatchInfo.cell(matchid,2).value is None:
-                    await interaction.response.send_message("Roster must be set.", ephemeral=True)
-                    return
-                else:
-                    for i in range(13,18):
-                        MatchInfo.update_cell(matchid, i, f'{i-12}707001')
-                    await interaction.response.send_message(f'{team1} forfeited Match {matchid}.', ephemeral=True)
+        if (checkOrganizer(interaction.user)) != 0:
+            if matchid > len(MatchInfo.get("A:A")):
+                await interaction.response.send_message("Invalid match ID.", ephemeral=True)
+            elif (MatchInfo.cell(matchid,18).value == "TRUE"):
+                await interaction.response.send_message("Match already completed.", ephemeral=True)
             else:
-                await interaction.response.send_message("Invalid team.", ephemeral=True)
-                return
-            MatchInfo.update_cell(matchid,18,"TRUE")
+                if (team1 == MatchInfo.cell(matchid,1).value and team2 == MatchInfo.cell(matchid,12).value) or (team1 == MatchInfo.cell(matchid,12).value and team2 == MatchInfo.cell(matchid,1).value):
+                    for i in range(13,18):
+                        MatchInfo.update_cell(matchid, i, "0000001")
+                    await interaction.response.send_message(f'Double forfeited Match {matchid}.', ephemeral=True)
+                elif team1 == MatchInfo.cell(matchid,1).value:
+                    if MatchInfo.cell(matchid,7).value is None:
+                        await interaction.response.send_message("Roster must be set.", ephemeral=True)
+                        return
+                    else:
+                        for i in range(13,18):
+                            MatchInfo.update_cell(matchid, i, f'00707{i-12}1')
+                        await interaction.response.send_message(f'{team1} forfeited Match {matchid}.', ephemeral=True)
+                elif team1 == MatchInfo.cell(matchid,12).value:
+                    if MatchInfo.cell(matchid,2).value is None:
+                        await interaction.response.send_message("Roster must be set.", ephemeral=True)
+                        return
+                    else:
+                        for i in range(13,18):
+                            MatchInfo.update_cell(matchid, i, f'{i-12}707001')
+                        await interaction.response.send_message(f'{team1} forfeited Match {matchid}.', ephemeral=True)
+                else:
+                    await interaction.response.send_message("Invalid team.", ephemeral=True)
+                    return
+                MatchInfo.update_cell(matchid,18,"TRUE")
+        else:
+            await interaction.response.send_message("You are not an organizer.", ephemeral=True)
     
     @forfeitmatch.autocomplete('team1')
     async def roster_autocomplete(interaction: discord.Interaction, current: str):
