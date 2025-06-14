@@ -64,6 +64,9 @@ team2submission_team2score = 4
 team2player = 5
 scorevalidation = 6
 
+# other
+default_storage = '0000000' # 7 digits
+
 # loading discord bot token from .env
 load_dotenv()
 token = os.getenv('DISCORD_TOKEN')
@@ -435,81 +438,82 @@ for GUILD_ID in GUILD_IDS:
             
     # blindpick command: blindpicking
     @client.tree.command(name="blindpick", description="Blindpick for a scheduled match.", guild=GUILD_ID) # modify this later for team from roles
-    @app_commands.describe(matchid="Match ID", team="Your team")
-    async def blindpick(interaction:discord.Interaction, matchid: int, team: str):
+    @app_commands.describe(matchid="Match ID")
+    async def blindpick(interaction:discord.Interaction, matchid: int):
         if matchid > len(MatchInfo.get("A:A")):
             await interaction.response.send_message("Invalid match ID.", ephemeral=True)
-        elif team not in [MatchInfo.cell(matchid,1).value,MatchInfo.cell(matchid,12).value]:
-            await interaction.response.send_message("Invalid team.", ephemeral=True)
         elif MatchInfo.cell(matchid,13).value is not None and MatchInfo.cell(matchid,13).value[0] != '0' and MatchInfo.cell(matchid,13).value[5] != '0':
             await interaction.response.send_message("Match has already been started.", ephemeral=True)
         else:
-            if (team == MatchInfo.cell(matchid,1).value and MatchInfo.cell(matchid,1).value is None) or (team == MatchInfo.cell(matchid,12).value and MatchInfo.cell(matchid,7).value is None):
-                await interaction.response.send_message("Roster must be set.", ephemeral=True)
+            user = interaction.user
+            teamAssign = checkRoles(user, matchid)
+            if teamAssign != 0:
+                if (teamAssign == 1 and MatchInfo.cell(matchid,team1lineupentry).value is None) or (teamAssign == 2 and MatchInfo.cell(matchid,team2lineupentry).value is None):
+                    await interaction.response.send_message("Roster must be set.", ephemeral=True)
+                else:
+                    class Select(discord.ui.Select):
+                        def __init__(self, author:discord.User):
+                            self.author = author
+                            if teamAssign == 1:
+                                options=[discord.SelectOption(label=player, value=f'{index}:{player}') for index, player in enumerate([MatchInfo.cell(matchid,i).value for i in range(team1lineupentry,team1lineupentry+5)])]
+                            else:
+                                options=[discord.SelectOption(label=player, value=f'{index}:{player}') for index, player in enumerate([MatchInfo.cell(matchid,i).value for i in range(team2lineupentry,team2lineupentry+5)])]
+                            super().__init__(placeholder="Select a player to blindpick.",max_values=1,min_values=1,options=options)
+                        async def callback(self, interaction: discord.Interaction):
+                            if interaction.user.id != self.author.id:
+                                await interaction.response.send_message(
+                                    "You are not allowed to use this select menu.", ephemeral=True
+                                )
+                                return
+                            if teamAssign == 1:
+                                selected_value = self.values[0]
+                                index_str, player = selected_value.split(":", 1)
+                                index = int(index_str)
+                                await interaction.response.send_message(f'You have selected to blindpick {player}.',ephemeral=True)
+                                if MatchInfo.cell(matchid,roundinfo).value is None:
+                                    MatchInfo.update_cell(matchid,roundinfo,default_storage)
+                                MatchInfo.update_cell(
+                                    matchid,
+                                    roundinfo,
+                                    str(index+1)+MatchInfo.cell(matchid,roundinfo).value[team1submission_team1score:]
+                                )
+                            else:
+                                selected_value = self.values[0]
+                                index_str, player = selected_value.split(":", 1)
+                                index = int(index_str)
+                                await interaction.response.send_message(f'You have selected to blindpick {player}.',ephemeral=True)
+                                if MatchInfo.cell(matchid,roundinfo).value is None:
+                                    MatchInfo.update_cell(matchid,roundinfo,default_storage)
+                                MatchInfo.update_cell(
+                                    matchid,
+                                    roundinfo,
+                                    MatchInfo.cell(matchid,roundinfo).value[:team2player]+str(index+1)+'0'
+                                )
+                            for child in self.view.children:
+                                child.disabled = True
+                            await interaction.message.edit(view=self.view)
+                            if MatchInfo.cell(matchid,roundinfo).value[team1player] != '0' and MatchInfo.cell(matchid,roundinfo).value[team2player] != '0':
+                                embed = discord.Embed(title=f'Match {matchid} Blindpick Results', color=discord.Color.purple())
+                                blindpicked1 = MatchInfo.cell(matchid, team1lineupentry - 1 + int(MatchInfo.cell(matchid,roundinfo).value[team1player])).value
+                                blindpicked2 = MatchInfo.cell(matchid, team2lineupentry - 1 + int(MatchInfo.cell(matchid,roundinfo).value[team2player])).value
+                                embed.add_field(
+                                    name=MatchInfo.cell(matchid,team1name).value,
+                                    value=(f'**[{blindpicked1}](https://ch.tetr.io/u/{blindpicked1})**' if blindpicked1 != "N/A" else "**N/A**"),
+                                    inline=True
+                                )
+                                embed.add_field(
+                                    name=MatchInfo.cell(matchid,team2name).value,
+                                    value=(f'**[{blindpicked2}](https://ch.tetr.io/u/{blindpicked2})**' if blindpicked2 != "N/A" else "**N/A**"),
+                                    inline=True
+                                )
+                                await interaction.followup.send(embed=embed)
+                    class SelectView(discord.ui.View):
+                        def __init__(self, author: discord.User, *, timeout=180):
+                            super().__init__(timeout=timeout)
+                            self.add_item(Select(author))
+                    await interaction.response.send_message(view=SelectView(interaction.user))
             else:
-                class Select(discord.ui.Select):
-                    def __init__(self, author:discord.User):
-                        self.author = author
-                        if team == MatchInfo.cell(matchid,1).value:
-                            options=[discord.SelectOption(label=player, value=f'{index}:{player}') for index, player in enumerate([MatchInfo.cell(matchid,i).value for i in range(2,7)])]
-                        else:
-                            options=[discord.SelectOption(label=player, value=f'{index}:{player}') for index, player in enumerate([MatchInfo.cell(matchid,i).value for i in range(7,12)])]
-                        super().__init__(placeholder="Select a player to blindpick.",max_values=1,min_values=1,options=options)
-                    async def callback(self, interaction: discord.Interaction):
-                        if interaction.user.id != self.author.id:
-                            await interaction.response.send_message(
-                                "You are not allowed to use this select menu.", ephemeral=True
-                            )
-                            return
-                        if team == MatchInfo.cell(matchid,1).value:
-                            selected_value = self.values[0]
-                            index_str, player = selected_value.split(":", 1)
-                            index = int(index_str)
-                            await interaction.response.send_message(f'You have selected to blindpick {player}.',ephemeral=True)
-                            MatchInfo.update_cell(
-                                matchid,
-                                13,
-                                (f'{index+1}000000' if MatchInfo.cell(matchid,13).value is None
-                                 else str(index+1)+MatchInfo.cell(matchid,13).value[1:])
-                            )
-                        else:
-                            selected_value = self.values[0]
-                            index_str, player = selected_value.split(":", 1)
-                            index = int(index_str)
-                            await interaction.response.send_message(f'You have selected to blindpick {player}.',ephemeral=True)
-                            MatchInfo.update_cell(
-                                matchid,
-                                13,
-                                (f'00000{index+1}0' if MatchInfo.cell(matchid,13).value is None
-                                 else MatchInfo.cell(matchid,13).value[:5]+str(index+1)+'0')
-                            )
-                        for child in self.view.children:
-                            child.disabled = True
-                        await interaction.message.edit(view=self.view)
-                        if MatchInfo.cell(matchid,13).value[0] != '0' and MatchInfo.cell(matchid,13).value[5] != '0':
-                            embed = discord.Embed(title=f'Match {matchid} Blindpick Results', color=discord.Color.purple())
-                            blindpicked1 = MatchInfo.cell(matchid, 1 + int(MatchInfo.cell(matchid,13).value[0])).value
-                            blindpicked2 = MatchInfo.cell(matchid, 6 + int(MatchInfo.cell(matchid,13).value[5])).value
-                            embed.add_field(
-                                name=MatchInfo.cell(matchid,1).value,
-                                value=(f'**[{blindpicked1}](https://ch.tetr.io/u/{blindpicked1})**' if blindpicked1 != "N/A" else "**N/A**"),
-                                inline=True
-                            )
-                            embed.add_field(
-                                name=MatchInfo.cell(matchid,12).value,
-                                value=(f'**[{blindpicked2}](https://ch.tetr.io/u/{blindpicked2})**' if blindpicked2 != "N/A" else "**N/A**"),
-                                inline=True
-                            )
-                            await interaction.followup.send(embed=embed)
-                class SelectView(discord.ui.View):
-                    def __init__(self, author: discord.User, *, timeout=180):
-                        super().__init__(timeout=timeout)
-                        self.add_item(Select(author))
-                await interaction.response.send_message(view=SelectView(interaction.user))
-    
-    @blindpick.autocomplete('team')
-    async def roster_autocomplete(interaction: discord.Interaction, current: str):
-        return team_autocomplete(current)
+                await interaction.response.send_message("You are not authorized to blindpick for this match.", ephemeral=True)
     
     # matchresults command: shows match results
     @client.tree.command(name="matchresults", description="Shows match results for a given match.", guild=GUILD_ID)
